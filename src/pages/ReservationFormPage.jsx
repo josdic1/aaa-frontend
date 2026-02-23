@@ -1,9 +1,10 @@
 // src/pages/ReservationFormPage.jsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useData } from "../hooks/useData";
 import { useSchema } from "../hooks/useSchema";
+import { useAuth } from "../hooks/useAuth";
 import { api } from "../utils/api";
 
 const TODAY = new Date().toISOString().split("T")[0];
@@ -61,10 +62,12 @@ function getTimeSlots(mealType, dateStr) {
 
 export function ReservationFormPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { members, diningRooms, tables, refresh } = useData();
   const { schema } = useSchema();
 
-  const MAX_GUESTS = schema?._config?.max_party_size ?? 4;
+  // Party cap: 4 total including the booker
+  const MAX_PARTY = schema?._config?.max_party_size ?? 4;
 
   const [form, setForm] = useState({
     date: TODAY,
@@ -80,6 +83,27 @@ export function ReservationFormPage() {
   const [showGuestInput, setShowGuestInput] = useState(false);
   const [guestName, setGuestName] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Auto-add the booking user's own member record as the first attendee
+  // Members are linked to a user via user_id — find the one matching current user
+  useEffect(() => {
+    if (!user || !members || members.length === 0) return;
+    // Only auto-add once (attendees is empty)
+    if (attendees.length > 0) return;
+
+    const myMember = members.find((m) => m.user_id === user.id);
+    if (myMember) {
+      setAttendees([
+        {
+          member_id: myMember.id,
+          guest_name: myMember.name,
+          dietary_restrictions: [...(myMember.dietary_restrictions || [])],
+          isBooker: true,
+          _source_dietary: [...(myMember.dietary_restrictions || [])],
+        },
+      ]);
+    }
+  }, [user, members]);
 
   const set = (field) => (e) =>
     setForm((f) => ({ ...f, [field]: e.target.value }));
@@ -99,10 +123,14 @@ export function ReservationFormPage() {
   const addedMemberIds = attendees
     .filter((a) => a.member_id)
     .map((a) => a.member_id);
+
+  // Available members = all members linked to this user, not already added
+  // (the booker's own record + any household members they've added on Members page)
   const availableMembers = members.filter(
-    (m) => !addedMemberIds.includes(m.id),
+    (m) => m.user_id === user?.id && !addedMemberIds.includes(m.id),
   );
-  const canAddMore = attendees.length < MAX_GUESTS;
+
+  const canAddMore = attendees.length < MAX_PARTY;
 
   const selectedTable = tables.find((t) => t.id === parseInt(form.table_id));
   const tableTooSmall =
@@ -139,6 +167,8 @@ export function ReservationFormPage() {
   };
 
   const removeAttendee = (idx) => {
+    // Can't remove the booker (idx 0 if isBooker)
+    if (attendees[idx]?.isBooker) return;
     setAttendees((prev) => prev.filter((_, i) => i !== idx));
   };
 
@@ -176,6 +206,10 @@ export function ReservationFormPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (attendees.length === 0) {
+      toast.error("At least one attendee required");
+      return;
+    }
     if (!form.start_time) {
       toast.error("Please select a time");
       return;
@@ -190,10 +224,6 @@ export function ReservationFormPage() {
     }
     if (!form.table_id) {
       toast.error("Please select a table");
-      return;
-    }
-    if (attendees.length === 0) {
-      toast.error("At least one attendee required");
       return;
     }
 
@@ -257,7 +287,6 @@ export function ReservationFormPage() {
         {/* WHEN + WHERE */}
         <div className="card" style={s.section}>
           <div style={s.sectionTitle}>When &amp; Where</div>
-
           <div style={s.grid2}>
             <div className="field">
               <label>Date</label>
@@ -398,22 +427,46 @@ export function ReservationFormPage() {
                   fontWeight: 400,
                 }}
               >
-                ({attendees.length}/{MAX_GUESTS})
+                ({attendees.length}/{MAX_PARTY})
               </span>
             </div>
           </div>
 
+          {attendees.length === 0 && (
+            <div
+              style={{
+                padding: "20px",
+                textAlign: "center",
+                color: "var(--muted)",
+                fontSize: "13px",
+                border: "2px dashed var(--border-dim)",
+                borderRadius: "var(--radius-sm)",
+                marginBottom: "16px",
+              }}
+            >
+              No attendees added yet. Add yourself or a guest below.
+            </div>
+          )}
+
           <div style={s.attendeeList}>
             {attendees.map((a, idx) => (
-              <div key={idx} style={s.attendeeCard}>
+              <div
+                key={idx}
+                style={{
+                  ...s.attendeeCard,
+                  ...(a.isBooker ? s.bookerCard : {}),
+                }}
+              >
                 <div style={s.attendeeHeader}>
                   <div>
                     <div style={s.attendeeName}>{a.guest_name}</div>
-                    {a.member_id && (
-                      <div className="muted" style={{ fontSize: "10px" }}>
-                        saved member
-                      </div>
-                    )}
+                    <div className="muted" style={{ fontSize: "10px" }}>
+                      {a.isBooker
+                        ? "you (booker)"
+                        : a.member_id
+                          ? "saved member"
+                          : "guest"}
+                    </div>
                   </div>
                   <div
                     style={{
@@ -431,13 +484,15 @@ export function ReservationFormPage() {
                         ↺ Revert
                       </button>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => removeAttendee(idx)}
-                      style={s.removeBtn}
-                    >
-                      ✕
-                    </button>
+                    {!a.isBooker && (
+                      <button
+                        type="button"
+                        onClick={() => removeAttendee(idx)}
+                        style={s.removeBtn}
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -491,9 +546,10 @@ export function ReservationFormPage() {
             ))}
           </div>
 
+          {/* Add household members */}
           {canAddMore && availableMembers.length > 0 && (
             <div style={{ marginTop: "20px" }}>
-              <div style={s.subLabel}>Add Saved Member</div>
+              <div style={s.subLabel}>Add Household Member</div>
               <div style={s.memberGrid}>
                 {availableMembers.map((m) => (
                   <button
@@ -531,6 +587,7 @@ export function ReservationFormPage() {
             </div>
           )}
 
+          {/* Add guest */}
           {canAddMore && (
             <div style={{ marginTop: "12px" }}>
               {!showGuestInput ? (
@@ -580,7 +637,7 @@ export function ReservationFormPage() {
               className="muted"
               style={{ marginTop: "12px", fontSize: "12px" }}
             >
-              Maximum {MAX_GUESTS} guests reached.
+              Maximum {MAX_PARTY} guests reached.
             </div>
           )}
         </div>
@@ -617,7 +674,7 @@ export function ReservationFormPage() {
             <button
               type="submit"
               className="primary"
-              disabled={loading || dinnerUnavailable}
+              disabled={loading || dinnerUnavailable || attendees.length === 0}
             >
               {loading
                 ? "Creating..."
@@ -659,11 +716,14 @@ const s = {
   },
   attendeeList: { display: "flex", flexDirection: "column", gap: "12px" },
   attendeeCard: {
-    border: "2px solid var(--border-dim)",
+    borderWidth: "2px",
+    borderStyle: "solid",
+    borderColor: "var(--border-dim)",
     padding: "16px",
     borderRadius: "var(--radius-sm)",
     background: "var(--panel-2)",
   },
+  bookerCard: { borderColor: "var(--accent)", background: "#fffaf6" },
   attendeeHeader: {
     display: "flex",
     justifyContent: "space-between",
@@ -686,7 +746,9 @@ const s = {
   },
   revertBtn: {
     background: "none",
-    border: "1px solid var(--border-dim)",
+    borderWidth: "1px",
+    borderStyle: "solid",
+    borderColor: "var(--border-dim)",
     boxShadow: "none",
     fontSize: "10px",
     fontWeight: 700,
@@ -710,7 +772,8 @@ const s = {
     fontWeight: 700,
     letterSpacing: "0.06em",
     textTransform: "uppercase",
-    border: "1.5px solid",
+    borderWidth: "1.5px",
+    borderStyle: "solid",
     borderRadius: "2px",
     cursor: "pointer",
     boxShadow: "none",
@@ -729,7 +792,9 @@ const s = {
     padding: "10px 14px",
     fontSize: "12px",
     background: "white",
-    border: "2px solid var(--border)",
+    borderWidth: "2px",
+    borderStyle: "solid",
+    borderColor: "var(--border)",
     borderRadius: "var(--radius-sm)",
     cursor: "pointer",
     boxShadow: "2px 2px 0 var(--border)",

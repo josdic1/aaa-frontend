@@ -4,8 +4,6 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8080";
-
-// Staff invite code — change this whenever you want
 const STAFF_CODE = "STAFF2026";
 
 export function SignupPage() {
@@ -26,7 +24,6 @@ export function SignupPage() {
   const submit = async () => {
     setError(null);
 
-    // Basic client-side validation
     if (!form.email.trim()) {
       setError("Email is required");
       return;
@@ -46,13 +43,16 @@ export function SignupPage() {
 
     setLoading(true);
     try {
-      // Step 1: register — your backend returns access_token directly
       const res = await fetch(`${API_BASE}/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: form.email.trim().toLowerCase(),
           password: form.password,
+          // Only include invite_code if the user actually typed something
+          ...(form.invite_code.trim()
+            ? { invite_code: form.invite_code.trim() }
+            : {}),
         }),
       });
 
@@ -65,18 +65,8 @@ export function SignupPage() {
         throw new Error(msg);
       }
 
-      // Step 2: store token from register response (no second login call needed)
-      localStorage.setItem("token", data.access_token);
-
-      // Step 3: if staff invite code, promote role via admin endpoint
-      // (requires you to be logged in, but we just set the token above)
-      // This only works if the backend has a self-promote or you handle it server-side
-      // For now: just log in normally — admin can promote via Overlord
-      // OR: if invite code matches, you can handle it server-side (see note below)
-
-      // Step 4: fetch current user to populate auth context
+      // Log in to populate auth context (register doesn't auto-login)
       await login(form.email.trim().toLowerCase(), form.password);
-
       navigate("/");
     } catch (err) {
       setError(err.message || "Something went wrong");
@@ -84,6 +74,9 @@ export function SignupPage() {
       setLoading(false);
     }
   };
+
+  const codeEntered = form.invite_code.trim().length > 0;
+  const codeValid = form.invite_code.trim() === STAFF_CODE;
 
   return (
     <div style={s.root}>
@@ -145,19 +138,26 @@ export function SignupPage() {
             </span>
           </label>
           <input
-            style={s.input}
+            style={{
+              ...s.input,
+              borderColor: codeEntered
+                ? codeValid
+                  ? "#2e7d32"
+                  : "#c0392b"
+                : "var(--border)",
+            }}
             type="text"
             value={form.invite_code}
             onChange={set("invite_code")}
             onKeyDown={(e) => e.key === "Enter" && submit()}
             placeholder="Optional"
           />
-          {form.invite_code && form.invite_code === STAFF_CODE && (
-            <div style={s.codeHint}>✓ Staff access granted</div>
+          {codeEntered && codeValid && (
+            <div style={s.codeHintGood}>✓ Staff access verified</div>
           )}
-          {form.invite_code && form.invite_code !== STAFF_CODE && (
-            <div style={{ ...s.codeHint, color: "#c0392b" }}>
-              ✗ Invalid code — signing up as member
+          {codeEntered && !codeValid && (
+            <div style={s.codeHintBad}>
+              ✗ Invalid code — will sign up as member
             </div>
           )}
         </div>
@@ -269,10 +269,16 @@ const s = {
     color: "var(--muted)",
     textAlign: "center",
   },
-  codeHint: {
+  codeHintGood: {
     fontSize: "11px",
     fontWeight: 700,
     color: "#2e7d32",
+    marginTop: "5px",
+  },
+  codeHintBad: {
+    fontSize: "11px",
+    fontWeight: 700,
+    color: "#c0392b",
     marginTop: "5px",
   },
 };

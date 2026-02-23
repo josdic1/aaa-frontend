@@ -37,7 +37,9 @@ export function NavBar() {
           <Link to="/" style={active("/home")}>
             Home
           </Link>
-
+          <Link to="/menu" style={active("/menu")}>
+            Menu
+          </Link>
           <Link to="/members" style={active("/members")}>
             Members
           </Link>

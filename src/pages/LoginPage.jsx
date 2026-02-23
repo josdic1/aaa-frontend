@@ -27,9 +27,29 @@ export function LoginPage() {
     }
   };
 
-  const onClickFill = () => {
+  const onClickFillJosh = () => {
     setEmail("josh@josh.com");
     setPassword("1111");
+  };
+
+  const onClickFillStaff1 = () => {
+    setEmail("staff1@josh.com");
+    setPassword("111111");
+  };
+
+  const onClickFillStaff2 = () => {
+    setEmail("staff2@josh.com");
+    setPassword("111111");
+  };
+
+  const onClickFillSarah = () => {
+    setEmail("sarah@josh.com");
+    setPassword("111111");
+  };
+
+  const onClickFillJaime = () => {
+    setEmail("jaime@josh.com");
+    setPassword("111111");
   };
 
   return (
@@ -45,8 +65,25 @@ export function LoginPage() {
             <br />
             Lodge
           </div>
+
           <div style={s.tagline}>
             Private dining reservations and member services for Abeyton Lodge.
+          </div>
+          <div style={s.tagline} onClick={onClickFillStaff1}>
+            {" "}
+            Staff1
+          </div>
+          <div style={s.tagline} onClick={onClickFillStaff2}>
+            {" "}
+            Staff2
+          </div>
+          <div style={s.tagline} onClick={onClickFillSarah}>
+            {" "}
+            Sarah
+          </div>
+          <div style={s.tagline} onClick={onClickFillJaime}>
+            {" "}
+            Jaime
           </div>
         </div>
         <div style={s.leftFooter}>
@@ -59,7 +96,7 @@ export function LoginPage() {
       <div style={s.right}>
         <div style={s.card}>
           <div style={s.cardHeader}>
-            <h1 style={s.title} onClick={onClickFill}>
+            <h1 style={s.title} onClick={onClickFillJosh}>
               Welcome back.
             </h1>
             Welcome back.
