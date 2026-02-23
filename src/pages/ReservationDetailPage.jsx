@@ -32,38 +32,57 @@ export function ReservationDetailPage() {
 
   useEffect(() => {
     fetchBootstrap();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // IMPORTANT:
+  // - api.patch(/api/reservations/:id) returns ReservationRead (ReservationRead)
+  // - Bootstrap endpoint is what drives your pill, so we refresh bootstrap
+  // - But to avoid the UI “sticking” when bootstrap fetch is cached/slow,
+  //   we also update local state immediately from the PATCH response.
+  const patchReservationStatus = async (nextStatus, successMsg) => {
+    try {
+      const updated = await api.patch(`/api/reservations/${id}`, {
+        status: nextStatus,
+      });
+
+      // optimistic local update so the pill changes immediately
+      setData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          reservation: {
+            ...prev.reservation,
+            status: updated.status,
+          },
+        };
+      });
+
+      // hard refresh from server
+      await fetchBootstrap();
+      if (successMsg) toast.success(successMsg);
+    } catch (err) {
+      toast.error(err?.detail || "Failed to update reservation");
+      // re-sync in case optimistic update was wrong
+      await fetchBootstrap().catch(() => {});
+    }
+  };
 
   const confirmReservation = async () => {
     setConfirming(true);
     try {
-      await api.patch(`/api/reservations/${id}`, { status: "confirmed" });
-      await fetchBootstrap();
-      toast.success("Reservation confirmed");
-    } catch (err) {
-      toast.error(err.detail || "Failed to confirm");
+      await patchReservationStatus("confirmed", "Reservation confirmed");
     } finally {
       setConfirming(false);
     }
   };
 
   const cancelReservation = async () => {
-    try {
-      await api.patch(`/api/reservations/${id}`, { status: "cancelled" });
-      await fetchBootstrap();
-      toast.success("Reservation cancelled");
-    } catch (err) {
-      toast.error(err.detail || "Failed to cancel");
-    }
+    await patchReservationStatus("cancelled", "Reservation cancelled");
   };
 
   const restoreDraft = async () => {
-    try {
-      await api.patch(`/api/reservations/${id}`, { status: "draft" });
-      await fetchBootstrap();
-    } catch (err) {
-      toast.error(err.detail || "Failed to restore");
-    }
+    await patchReservationStatus("draft", "Restored to draft");
   };
 
   const addItem = async (orderId, menuItemId) => {
@@ -75,7 +94,7 @@ export function ReservationDetailPage() {
       });
       await fetchBootstrap();
     } catch (err) {
-      toast.error(err.detail || "Failed to add item");
+      toast.error(err?.detail || "Failed to add item");
     }
   };
 
@@ -84,7 +103,7 @@ export function ReservationDetailPage() {
       await api.delete(`/api/order-items/${itemId}`);
       await fetchBootstrap();
     } catch (err) {
-      toast.error(err.detail || "Failed to remove item");
+      toast.error(err?.detail || "Failed to remove item");
     }
   };
 
@@ -95,7 +114,7 @@ export function ReservationDetailPage() {
       await fetchBootstrap();
       toast.success("Order fired to kitchen");
     } catch (err) {
-      toast.error(err.detail || "Failed to fire order");
+      toast.error(err?.detail || "Failed to fire order");
     } finally {
       setFiring(null);
     }
@@ -103,15 +122,22 @@ export function ReservationDetailPage() {
 
   const fireAllUnfired = async () => {
     if (!data) return;
+
     const unfired = data.orders.filter((o) => {
       const items = data.order_items.filter((i) => i.order_id === o.id);
       return o.status === "open" && items.length > 0;
     });
+
     if (unfired.length === 0) {
       toast.error("No unfired orders with items");
       return;
     }
-    for (const order of unfired) await fireOrder(order.id);
+
+    for (const order of unfired) {
+      // eslint-disable-next-line no-await-in-loop
+      await fireOrder(order.id);
+    }
+
     toast.success(
       `Fired ${unfired.length} order${unfired.length !== 1 ? "s" : ""}`,
     );
@@ -126,6 +152,7 @@ export function ReservationDetailPage() {
         <p className="muted">Loading...</p>
       </div>
     );
+
   if (!data) return null;
 
   const {
@@ -140,16 +167,19 @@ export function ReservationDetailPage() {
 
   const getOrderForAttendee = (aId) =>
     orders.find((o) => o.attendee_id === aId);
+
   const getItemsForOrder = (oId) =>
     order_items.filter((i) => i.order_id === oId);
+
   const getAttendeeName = (a) => a.member?.name || a.guest_name || "Guest";
 
   const formatTime = (t) => {
     if (!t) return "";
     const [h, m] = t.split(":");
-    const hour = parseInt(h);
+    const hour = parseInt(h, 10);
     return `${hour % 12 === 0 ? 12 : hour % 12}:${m} ${hour < 12 ? "AM" : "PM"}`;
   };
+
   const formatPrice = (cents) => `$${((cents || 0) / 100).toFixed(2)}`;
 
   const unfiredWithItems = orders.filter((o) => {
@@ -167,6 +197,7 @@ export function ReservationDetailPage() {
     cancelled: "#c0392b",
     fired: "#c8783c",
     fulfilled: "#2e7d32",
+    open: "#888",
   };
 
   return (
@@ -181,6 +212,7 @@ export function ReservationDetailPage() {
           >
             ← Back
           </button>
+
           <h1 style={{ fontSize: "28px", marginBottom: "4px" }}>
             {new Date(reservation.date + "T12:00:00").toLocaleDateString(
               "en-US",
@@ -192,6 +224,7 @@ export function ReservationDetailPage() {
               },
             )}
           </h1>
+
           <div
             style={{
               display: "flex",
@@ -206,6 +239,7 @@ export function ReservationDetailPage() {
                 ? ` — ${formatTime(reservation.end_time)}`
                 : ""}
             </span>
+
             <span
               style={{
                 ...s.badge,
@@ -215,17 +249,18 @@ export function ReservationDetailPage() {
             >
               {reservation.status}
             </span>
+
             <span className="muted" style={{ fontSize: "11px" }}>
               #{reservation.id}
             </span>
           </div>
+
           {reservation.notes && (
             <p className="muted" style={{ marginTop: "8px" }}>
               {reservation.notes}
             </p>
           )}
 
-          {/* STATUS ACTIONS */}
           <div
             style={{
               display: "flex",
@@ -248,11 +283,13 @@ export function ReservationDetailPage() {
                 </button>
               </>
             )}
+
             {isConfirmed && (
               <button onClick={cancelReservation} style={s.cancelBtn}>
                 Cancel Reservation
               </button>
             )}
+
             {isCancelled && (
               <button onClick={restoreDraft} style={s.ghostActionBtn}>
                 Restore to Draft
@@ -313,6 +350,7 @@ export function ReservationDetailPage() {
             const isLocked =
               order?.status === "fired" || order?.status === "fulfilled";
             const name = getAttendeeName(attendee);
+
             const rowAccent = !order
               ? "var(--border)"
               : isLocked
@@ -327,9 +365,7 @@ export function ReservationDetailPage() {
                 className="card"
                 style={{
                   ...s.attendeeCard,
-                  borderLeftWidth: "4px",
-                  borderLeftStyle: "solid",
-                  borderLeftColor: rowAccent,
+                  borderLeft: `4px solid ${rowAccent}`,
                 }}
               >
                 <div style={s.attendeeHeader}>
@@ -345,6 +381,7 @@ export function ReservationDetailPage() {
                       </div>
                     )}
                   </div>
+
                   <div style={{ textAlign: "right" }}>
                     {order && (
                       <>
@@ -478,8 +515,12 @@ export function ReservationDetailPage() {
           orderItems={order_items}
           orderTotals={order_totals}
           reservationTotal={reservation_total}
-          getOrderForAttendee={getOrderForAttendee}
-          getItemsForOrder={getItemsForOrder}
+          getOrderForAttendee={(aId) =>
+            orders.find((o) => o.attendee_id === aId)
+          }
+          getItemsForOrder={(oId) =>
+            order_items.filter((i) => i.order_id === oId)
+          }
           getAttendeeName={getAttendeeName}
           formatPrice={formatPrice}
           onFire={fireOrder}
@@ -564,6 +605,7 @@ function TableStatusView({
             const order = getOrderForAttendee(attendee.id);
             const items = getItemsForOrder(order?.id);
             const isSelected = selected === attendee.id;
+
             const seatColor = !order
               ? "#aaa"
               : order.status === "fired" || order.status === "fulfilled"
@@ -578,7 +620,7 @@ function TableStatusView({
                 onClick={() => setSelected(isSelected ? null : attendee.id)}
                 style={{
                   ...s.seatBtn,
-                  borderColor: seatColor,
+                  border: `2px solid ${seatColor}`,
                   background: isSelected ? seatColor : "white",
                   color: isSelected ? "white" : "#333",
                 }}
@@ -673,6 +715,7 @@ function TableStatusView({
               </div>
             );
           })}
+
           <div
             style={{ ...s.summaryCell, borderLeft: "2px solid var(--border)" }}
           >
@@ -787,6 +830,7 @@ function TableStatusView({
                 </div>
               ))
             )}
+
             {selectedOrder && (
               <div
                 style={{
@@ -839,6 +883,7 @@ function TableStatusView({
                 {firing === selectedOrder.id ? "Firing..." : "🔥 Fire Order"}
               </button>
             )}
+
             {isLocked && selectedOrder && (
               <button
                 style={{ ...s.ghostActionBtn, width: "100%" }}
@@ -868,7 +913,7 @@ function MessageComposer({ reservationId, onSent }) {
       setBody("");
       await onSent();
     } catch (err) {
-      toast.error(err.detail || "Failed to send message");
+      toast.error(err?.detail || "Failed to send message");
     } finally {
       setSending(false);
     }
@@ -906,9 +951,7 @@ const s = {
   },
   tabs: {
     display: "flex",
-    borderBottomWidth: "2px",
-    borderBottomStyle: "solid",
-    borderBottomColor: "var(--border)",
+    borderBottom: "2px solid var(--border)",
     marginBottom: "24px",
   },
   tab: {
@@ -919,23 +962,20 @@ const s = {
     letterSpacing: "0.08em",
     background: "none",
     border: "none",
-    borderBottomWidth: "2px",
-    borderBottomStyle: "solid",
-    borderBottomColor: "transparent",
+    borderBottom: "2px solid transparent",
     boxShadow: "none",
     cursor: "pointer",
     color: "var(--muted)",
     marginBottom: "-2px",
   },
-  tabActive: { color: "var(--text)", borderBottomColor: "var(--accent)" },
+  tabActive: { color: "var(--text)", borderBottom: "2px solid var(--accent)" },
   badge: {
     fontSize: "10px",
     fontWeight: 900,
     letterSpacing: "0.08em",
     textTransform: "uppercase",
     padding: "3px 10px",
-    borderWidth: "1.5px",
-    borderStyle: "solid",
+    border: "1.5px solid currentColor",
     borderRadius: "2px",
     display: "inline-block",
   },
@@ -955,9 +995,7 @@ const s = {
     fontSize: "13px",
     fontWeight: 700,
     background: "transparent",
-    borderWidth: "1.5px",
-    borderStyle: "solid",
-    borderColor: "#c0392b",
+    border: "1.5px solid #c0392b",
     borderRadius: "var(--radius-sm)",
     cursor: "pointer",
     color: "#c0392b",
@@ -968,9 +1006,7 @@ const s = {
     fontSize: "13px",
     fontWeight: 700,
     background: "transparent",
-    borderWidth: "1.5px",
-    borderStyle: "solid",
-    borderColor: "var(--border)",
+    border: "1.5px solid var(--border)",
     borderRadius: "var(--radius-sm)",
     cursor: "pointer",
     color: "var(--text)",
@@ -993,9 +1029,7 @@ const s = {
     alignItems: "center",
     padding: "12px 16px",
     background: "#fff7e6",
-    borderWidth: "2px",
-    borderStyle: "solid",
-    borderColor: "#c8783c",
+    border: "2px solid #c8783c",
     borderRadius: "var(--radius-sm)",
     marginBottom: "20px",
     fontSize: "13px",
@@ -1019,9 +1053,7 @@ const s = {
     fontSize: "9px",
     fontWeight: 700,
     padding: "2px 6px",
-    borderWidth: "1px",
-    borderStyle: "solid",
-    borderColor: "var(--border-dim)",
+    border: "1px solid var(--border-dim)",
     textTransform: "uppercase",
     letterSpacing: "0.06em",
     color: "var(--muted)",
@@ -1066,9 +1098,7 @@ const s = {
   menuBtn: {
     padding: "8px 14px",
     background: "white",
-    borderWidth: "2px",
-    borderStyle: "solid",
-    borderColor: "var(--border)",
+    border: "2px solid var(--border)",
     borderRadius: "var(--radius-sm)",
     cursor: "pointer",
     boxShadow: "2px 2px 0 var(--border)",
@@ -1091,9 +1121,7 @@ const s = {
   messageRow: {
     padding: "12px",
     background: "var(--panel-2)",
-    borderWidth: "1px",
-    borderStyle: "solid",
-    borderColor: "var(--border-dim)",
+    border: "1px solid var(--border-dim)",
     borderRadius: "var(--radius-sm)",
   },
   messageSender: {
@@ -1120,8 +1148,6 @@ const s = {
   seatBtn: {
     width: "80px",
     height: "80px",
-    borderWidth: "2px",
-    borderStyle: "solid",
     borderRadius: "var(--radius-sm)",
     cursor: "pointer",
     display: "flex",
@@ -1140,9 +1166,7 @@ const s = {
   summaryRow: {
     display: "flex",
     flexWrap: "wrap",
-    borderWidth: "2px",
-    borderStyle: "solid",
-    borderColor: "var(--border)",
+    border: "2px solid var(--border)",
     borderRadius: "var(--radius-sm)",
     overflow: "hidden",
   },
@@ -1155,9 +1179,7 @@ const s = {
   sidePanel: {
     width: "280px",
     flexShrink: 0,
-    borderWidth: "2px",
-    borderStyle: "solid",
-    borderColor: "var(--border)",
+    border: "2px solid var(--border)",
     borderRadius: "var(--radius-sm)",
     padding: "20px",
     background: "white",
@@ -1185,9 +1207,7 @@ const s = {
     alignItems: "center",
     padding: "8px 10px",
     background: "var(--panel-2)",
-    borderWidth: "1px",
-    borderStyle: "solid",
-    borderColor: "var(--border-dim)",
+    border: "1px solid var(--border-dim)",
     borderRadius: "var(--radius-sm)",
     cursor: "pointer",
     fontSize: "12px",

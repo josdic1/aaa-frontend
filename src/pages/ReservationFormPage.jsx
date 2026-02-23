@@ -63,10 +63,9 @@ function getTimeSlots(mealType, dateStr) {
 export function ReservationFormPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { members, diningRooms, tables, refresh } = useData();
+  const { members, diningRooms, refresh } = useData();
   const { schema } = useSchema();
 
-  // Party cap: 4 total including the booker
   const MAX_PARTY = schema?._config?.max_party_size ?? 4;
 
   const [form, setForm] = useState({
@@ -74,7 +73,6 @@ export function ReservationFormPage() {
     meal_type: "lunch",
     start_time: "",
     room_id: "",
-    table_id: "",
     notes: "",
   });
 
@@ -83,27 +81,6 @@ export function ReservationFormPage() {
   const [showGuestInput, setShowGuestInput] = useState(false);
   const [guestName, setGuestName] = useState("");
   const [loading, setLoading] = useState(false);
-
-  // Auto-add the booking user's own member record as the first attendee
-  // Members are linked to a user via user_id — find the one matching current user
-  useEffect(() => {
-    if (!user || !members || members.length === 0) return;
-    // Only auto-add once (attendees is empty)
-    if (attendees.length > 0) return;
-
-    const myMember = members.find((m) => m.user_id === user.id);
-    if (myMember) {
-      setAttendees([
-        {
-          member_id: myMember.id,
-          guest_name: myMember.name,
-          dietary_restrictions: [...(myMember.dietary_restrictions || [])],
-          isBooker: true,
-          _source_dietary: [...(myMember.dietary_restrictions || [])],
-        },
-      ]);
-    }
-  }, [user, members]);
 
   const set = (field) => (e) =>
     setForm((f) => ({ ...f, [field]: e.target.value }));
@@ -116,25 +93,15 @@ export function ReservationFormPage() {
     (r) => r.is_active && ALLOWED_ROOMS.includes(r.name),
   );
 
-  const tablesInSelectedRoom = tables.filter(
-    (t) => t.dining_room_id === parseInt(form.room_id) && t.is_active,
-  );
-
   const addedMemberIds = attendees
     .filter((a) => a.member_id)
     .map((a) => a.member_id);
 
-  // Available members = all members linked to this user, not already added
-  // (the booker's own record + any household members they've added on Members page)
-  const availableMembers = members.filter(
+  const availableMembers = (members || []).filter(
     (m) => m.user_id === user?.id && !addedMemberIds.includes(m.id),
   );
 
   const canAddMore = attendees.length < MAX_PARTY;
-
-  const selectedTable = tables.find((t) => t.id === parseInt(form.table_id));
-  const tableTooSmall =
-    selectedTable && selectedTable.seat_count < attendees.length;
 
   const addMember = (member) => {
     if (!canAddMore) return;
@@ -167,8 +134,6 @@ export function ReservationFormPage() {
   };
 
   const removeAttendee = (idx) => {
-    // Can't remove the booker (idx 0 if isBooker)
-    if (attendees[idx]?.isBooker) return;
     setAttendees((prev) => prev.filter((_, i) => i !== idx));
   };
 
@@ -222,10 +187,6 @@ export function ReservationFormPage() {
       toast.error("Please select a room");
       return;
     }
-    if (!form.table_id) {
-      toast.error("Please select a table");
-      return;
-    }
 
     setLoading(true);
     try {
@@ -236,8 +197,8 @@ export function ReservationFormPage() {
         status: confirmNow ? "confirmed" : "draft",
       });
 
-      await Promise.all([
-        ...attendees.map((a) =>
+      await Promise.all(
+        attendees.map((a) =>
           api.post("/api/reservation-attendees", {
             reservation_id: reservation.id,
             member_id: a.member_id || null,
@@ -245,11 +206,7 @@ export function ReservationFormPage() {
             dietary_restrictions: a.dietary_restrictions,
           }),
         ),
-        api.post("/api/seat-assignments", {
-          reservation_id: reservation.id,
-          table_id: parseInt(form.table_id),
-        }),
-      ]);
+      );
 
       await refresh();
       toast.success(
@@ -351,58 +308,21 @@ export function ReservationFormPage() {
             </div>
           )}
 
-          <div style={s.grid2}>
-            <div className="field">
-              <label>Room</label>
-              <select
-                value={form.room_id}
-                onChange={(e) =>
-                  setForm((f) => ({
-                    ...f,
-                    room_id: e.target.value,
-                    table_id: "",
-                  }))
-                }
-                required
-              >
-                <option value="">Select a room...</option>
-                {activeRooms.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="field" style={{ marginBottom: 0 }}>
-              <label>Table</label>
-              <select
-                value={form.table_id}
-                onChange={set("table_id")}
-                disabled={!form.room_id}
-                required
-              >
-                <option value="">
-                  {form.room_id ? "Select a table..." : "Select a room first"}
+          <div className="field" style={{ marginBottom: 0 }}>
+            <label>Room Preference</label>
+            <select value={form.room_id} onChange={set("room_id")} required>
+              <option value="">Select a room...</option>
+              {activeRooms.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
                 </option>
-                {tablesInSelectedRoom.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name} — {t.seat_count} seats
-                  </option>
-                ))}
-              </select>
-              {tableTooSmall && (
-                <div
-                  style={{
-                    fontSize: "11px",
-                    color: "var(--red)",
-                    marginTop: "4px",
-                    fontWeight: 700,
-                  }}
-                >
-                  ⚠ Table seats {selectedTable.seat_count}, you have{" "}
-                  {attendees.length} attendees.
-                </div>
-              )}
+              ))}
+            </select>
+            <div
+              className="muted"
+              style={{ marginTop: "6px", fontSize: "12px" }}
+            >
+              Staff will assign your table based on availability.
             </div>
           </div>
         </div>
@@ -444,28 +364,18 @@ export function ReservationFormPage() {
                 marginBottom: "16px",
               }}
             >
-              No attendees added yet. Add yourself or a guest below.
+              Add at least one attendee to continue.
             </div>
           )}
 
           <div style={s.attendeeList}>
             {attendees.map((a, idx) => (
-              <div
-                key={idx}
-                style={{
-                  ...s.attendeeCard,
-                  ...(a.isBooker ? s.bookerCard : {}),
-                }}
-              >
+              <div key={idx} style={s.attendeeCard}>
                 <div style={s.attendeeHeader}>
                   <div>
                     <div style={s.attendeeName}>{a.guest_name}</div>
                     <div className="muted" style={{ fontSize: "10px" }}>
-                      {a.isBooker
-                        ? "you (booker)"
-                        : a.member_id
-                          ? "saved member"
-                          : "guest"}
+                      {a.member_id ? "saved member" : "guest"}
                     </div>
                   </div>
                   <div
@@ -484,15 +394,13 @@ export function ReservationFormPage() {
                         ↺ Revert
                       </button>
                     )}
-                    {!a.isBooker && (
-                      <button
-                        type="button"
-                        onClick={() => removeAttendee(idx)}
-                        style={s.removeBtn}
-                      >
-                        ✕
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => removeAttendee(idx)}
+                      style={s.removeBtn}
+                    >
+                      ✕
+                    </button>
                   </div>
                 </div>
 
@@ -723,7 +631,6 @@ const s = {
     borderRadius: "var(--radius-sm)",
     background: "var(--panel-2)",
   },
-  bookerCard: { borderColor: "var(--accent)", background: "#fffaf6" },
   attendeeHeader: {
     display: "flex",
     justifyContent: "space-between",

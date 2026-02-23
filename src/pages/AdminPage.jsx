@@ -59,9 +59,10 @@ export function AdminPage() {
     return `${room?.name || "Room"} — ${table.name}`;
   };
 
+  // Use admin route so lifecycle locks don't block status changes
   const updateStatus = async (reservationId, status) => {
     try {
-      await api.patch(`/api/reservations/${reservationId}`, { status });
+      await api.patch(`/api/admin/reservations/${reservationId}`, { status });
       await load();
       toast.success(`Reservation ${status}`);
     } catch (err) {
@@ -338,8 +339,7 @@ export function AdminPage() {
                     className="muted"
                     style={{ fontSize: "11px", marginTop: "2px" }}
                   >
-                    Attendee #{order.attendee_id} · Reservation #
-                    {order.reservation_id}
+                    Attendee #{order.attendee_id}
                   </div>
                 </div>
                 <button

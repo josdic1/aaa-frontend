@@ -160,9 +160,7 @@ const s = {
   },
   tabs: {
     display: "flex",
-    borderBottomWidth: "2px",
-    borderBottomStyle: "solid",
-    borderBottomColor: "var(--border)",
+    borderBottom: "2px solid transparent",
     marginBottom: "24px",
     gap: "0",
   },

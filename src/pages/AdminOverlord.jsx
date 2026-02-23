@@ -1,5 +1,5 @@
 // src/pages/AdminOverlord.jsx
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import { api } from "../utils/api";
 import { useAuth } from "../hooks/useAuth";
@@ -117,38 +117,110 @@ export function AdminOverlord() {
   const [loading, setLoading] = useState(false);
   const [confirm, setConfirm] = useState(null);
 
+  // Cache of members for name resolution when admin attendee endpoints
+  // don't embed member objects.
+  const [membersById, setMembersById] = useState({});
+  const [membersLoaded, setMembersLoaded] = useState(false);
+
+  // All endpoints use /api/admin/... for proper staff-gated access
   const endpoints = {
     reservations: "/api/admin/reservations",
     attendees: "/api/admin/attendees",
     orders: "/api/admin/orders",
     messages: "/api/admin/messages",
-    members: "/api/members",
+    members: "/api/admin/members",
     users: "/api/admin/users",
     tables: "/api/admin/tables",
     rooms: "/api/admin/dining-rooms",
-    menu: "/api/menu-items",
+    menu: "/api/admin/menu-items",
   };
 
-  const load = useCallback(async (section) => {
-    setLoading(true);
+  const ensureMembersIndex = useCallback(async () => {
+    if (membersLoaded) return;
     try {
-      const result = await api.get(endpoints[section]);
-      setData((prev) => ({
-        ...prev,
-        [section]: Array.isArray(result)
-          ? result
-          : result.reservations || result.items || [],
-      }));
-    } catch (err) {
-      toast.error(`Failed to load ${section}`);
-    } finally {
-      setLoading(false);
+      const result = await api.get(endpoints.members);
+      const rows = Array.isArray(result)
+        ? result
+        : result.members || result.items || [];
+      const map = {};
+      for (const m of rows) map[m.id] = m;
+      setMembersById(map);
+      setMembersLoaded(true);
+    } catch {
+      // Don't hard fail the whole UI just because this enrichment failed.
+      // Names will fallback to guest_name/Guest.
     }
-  }, []);
+  }, [membersLoaded]);
+
+  const hydrateAttendees = useCallback(
+    (rows) => {
+      if (!Array.isArray(rows)) return [];
+      return rows.map((a) => {
+        if (a?.member?.name) return a;
+        const m = a?.member_id ? membersById[a.member_id] : null;
+        if (!m) return a;
+        return { ...a, member: m };
+      });
+    },
+    [membersById],
+  );
+
+  const normalizeListPayload = (result) => {
+    if (Array.isArray(result)) return result;
+    // common shapes across admin endpoints
+    return (
+      result.reservations ||
+      result.attendees ||
+      result.orders ||
+      result.messages ||
+      result.members ||
+      result.users ||
+      result.tables ||
+      result.rooms ||
+      result.menu_items ||
+      result.items ||
+      []
+    );
+  };
+
+  const load = useCallback(
+    async (section) => {
+      setLoading(true);
+      try {
+        // If we’re loading anything that needs attendee/member names,
+        // warm the member index first.
+        if (section === "attendees" || section === "reservations") {
+          await ensureMembersIndex();
+        }
+
+        const result = await api.get(endpoints[section]);
+        let rows = normalizeListPayload(result);
+
+        if (section === "attendees") {
+          rows = hydrateAttendees(rows);
+        }
+
+        setData((prev) => ({
+          ...prev,
+          [section]: rows,
+        }));
+      } catch {
+        toast.error(`Failed to load ${section}`);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [ensureMembersIndex, hydrateAttendees],
+  );
 
   useEffect(() => {
     load(tab);
-  }, [tab]);
+  }, [tab, load]);
+
+  // If user navigates to Attendees/Reservations, prefetch members so names resolve fast.
+  useEffect(() => {
+    if (tab === "attendees" || tab === "reservations") ensureMembersIndex();
+  }, [tab, ensureMembersIndex]);
 
   const deleteRow = (section, id, label) => {
     setConfirm({
@@ -217,6 +289,7 @@ export function AdminOverlord() {
         {!loading && tab === "reservations" && (
           <ReservationsTable
             rows={rows}
+            membersById={membersById}
             onRefresh={() => load("reservations")}
             onDelete={(id) =>
               deleteRow("reservations", id, `Reservation #${id}`)
@@ -226,6 +299,7 @@ export function AdminOverlord() {
         {!loading && tab === "attendees" && (
           <AttendeesTable
             rows={rows}
+            membersById={membersById}
             onRefresh={() => load("attendees")}
             onDelete={(id) => deleteRow("attendees", id, `Attendee #${id}`)}
           />
@@ -282,8 +356,8 @@ export function AdminOverlord() {
 
 // ── RESERVATIONS ─────────────────────────────────────────────────────────────
 
-function ReservationsTable({ rows, onRefresh, onDelete }) {
-  const [detail, setDetail] = useState(null); // reservation id for detail modal
+function ReservationsTable({ rows, membersById, onRefresh, onDelete }) {
+  const [detail, setDetail] = useState(null);
   const statusColor = {
     draft: "#888",
     confirmed: "#2e7d32",
@@ -295,6 +369,7 @@ function ReservationsTable({ rows, onRefresh, onDelete }) {
       {detail && (
         <ReservationDetailModal
           reservationId={detail}
+          membersById={membersById}
           onClose={() => {
             setDetail(null);
             onRefresh();
@@ -357,7 +432,7 @@ function ReservationsTable({ rows, onRefresh, onDelete }) {
   );
 }
 
-function ReservationDetailModal({ reservationId, onClose }) {
+function ReservationDetailModal({ reservationId, membersById, onClose }) {
   const { user: currentUser } = useAuth();
   const [bootstrap, setBootstrap] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -369,6 +444,19 @@ function ReservationDetailModal({ reservationId, onClose }) {
   const [form, setForm] = useState(null);
   const [saving, setSaving] = useState(false);
 
+  const hydrateAttendeesWithMembers = useCallback(
+    (atts) => {
+      if (!Array.isArray(atts)) return [];
+      return atts.map((a) => {
+        if (a?.member?.name) return a;
+        const m = a?.member_id ? membersById[a.member_id] : null;
+        if (!m) return a;
+        return { ...a, member: m };
+      });
+    },
+    [membersById],
+  );
+
   const load = async () => {
     try {
       const [res, msgs, atts, tbls] = await Promise.all([
@@ -378,9 +466,14 @@ function ReservationDetailModal({ reservationId, onClose }) {
         api.get("/api/admin/tables"),
       ]);
       setBootstrap(res);
-      setMessages(msgs);
-      setAttendees(atts);
-      setTables(tbls);
+      setMessages(
+        Array.isArray(msgs) ? msgs : msgs.messages || msgs.items || [],
+      );
+      const fixedAtts = hydrateAttendeesWithMembers(
+        Array.isArray(atts) ? atts : atts.attendees || atts.items || [],
+      );
+      setAttendees(fixedAtts);
+      setTables(Array.isArray(tbls) ? tbls : tbls.tables || tbls.items || []);
       setForm({
         date: res.date || "",
         start_time: res.start_time || "",
@@ -396,7 +489,7 @@ function ReservationDetailModal({ reservationId, onClose }) {
 
   useEffect(() => {
     load();
-  }, [reservationId]);
+  }, [reservationId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const saveReservation = async () => {
     setSaving(true);
@@ -501,7 +594,6 @@ function ReservationDetailModal({ reservationId, onClose }) {
 
         {!loading && form && (
           <>
-            {/* ── RESERVATION FIELDS ── */}
             <div style={os.detailSection}>
               <div style={os.detailSectionTitle}>Reservation Details</div>
               <div
@@ -567,7 +659,6 @@ function ReservationDetailModal({ reservationId, onClose }) {
               </button>
             </div>
 
-            {/* ── ATTENDEES ── */}
             <div style={os.detailSection}>
               <div style={os.detailSectionTitle}>
                 Attendees ({attendees.length})
@@ -579,13 +670,13 @@ function ReservationDetailModal({ reservationId, onClose }) {
                 <AttendeeInlineEditor
                   key={a.id}
                   attendee={a}
+                  membersById={membersById}
                   onSave={(patch) => saveAttendee(a.id, patch)}
                   onDelete={() => deleteAttendee(a.id)}
                 />
               ))}
             </div>
 
-            {/* ── MESSAGES ── */}
             <div style={os.detailSection}>
               <div style={os.detailSectionTitle}>
                 Messages ({messages.length})
@@ -665,7 +756,7 @@ function ReservationDetailModal({ reservationId, onClose }) {
   );
 }
 
-function AttendeeInlineEditor({ attendee, onSave, onDelete }) {
+function AttendeeInlineEditor({ attendee, membersById, onSave, onDelete }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     guest_name: attendee.guest_name || "",
@@ -680,7 +771,13 @@ function AttendeeInlineEditor({ attendee, onSave, onDelete }) {
         : [...f.dietary_restrictions, val],
     }));
 
-  const name = attendee.guest_name || attendee.member?.name || "Guest";
+  const resolvedMember = attendee.member?.name
+    ? attendee.member
+    : attendee.member_id
+      ? membersById?.[attendee.member_id]
+      : null;
+
+  const name = resolvedMember?.name || attendee.guest_name || "Guest";
 
   return (
     <div style={os.attendeeRow}>
@@ -695,7 +792,7 @@ function AttendeeInlineEditor({ attendee, onSave, onDelete }) {
           <span style={{ fontWeight: 700, fontSize: "13px", color: "#e8e8e4" }}>
             {name}
           </span>
-          {attendee.member_id && (
+          {(attendee.member_id || resolvedMember?.id) && (
             <span
               style={{ marginLeft: "8px", fontSize: "10px", color: "#555" }}
             >
@@ -782,8 +879,18 @@ function AttendeeInlineEditor({ attendee, onSave, onDelete }) {
 
 // ── ATTENDEES ─────────────────────────────────────────────────────────────────
 
-function AttendeesTable({ rows, onRefresh, onDelete }) {
+function AttendeesTable({ rows, membersById, onRefresh, onDelete }) {
   const [editing, setEditing] = useState(null);
+
+  const resolveName = useCallback(
+    (r) => {
+      if (r?.member?.name) return r.member.name;
+      if (r?.member_id && membersById?.[r.member_id]?.name)
+        return membersById[r.member_id].name;
+      return r?.guest_name || "—";
+    },
+    [membersById],
+  );
 
   const save = async (id, patch) => {
     try {
@@ -827,7 +934,7 @@ function AttendeesTable({ rows, onRefresh, onDelete }) {
                   <span style={os.dimText}>#{r.id}</span>
                 </td>
                 <td style={os.td}>#{r.reservation_id}</td>
-                <td style={os.td}>{r.guest_name || r.member?.name || "—"}</td>
+                <td style={os.td}>{resolveName(r)}</td>
                 <td style={{ ...os.td, fontSize: "10px" }}>
                   {(r.dietary_restrictions || []).join(", ") || "none"}
                 </td>
@@ -1044,9 +1151,9 @@ function MembersTable({ rows, onRefresh, onDelete }) {
   const save = async (id, patch) => {
     try {
       if (id) {
-        await api.patch(`/api/members/${id}`, patch);
+        await api.patch(`/api/admin/members/${id}`, patch);
       } else {
-        await api.post("/api/members", patch);
+        await api.post("/api/admin/members", patch);
       }
       onRefresh();
       setEditing(null);
@@ -1073,11 +1180,13 @@ function MembersTable({ rows, onRefresh, onDelete }) {
         <table style={os.table}>
           <thead>
             <tr>
-              {["ID", "Name", "Relation", "Dietary", "Actions"].map((h) => (
-                <th key={h} style={os.th}>
-                  {h}
-                </th>
-              ))}
+              {["ID", "Name", "User ID", "Relation", "Dietary", "Actions"].map(
+                (h) => (
+                  <th key={h} style={os.th}>
+                    {h}
+                  </th>
+                ),
+              )}
             </tr>
           </thead>
           <tbody>
@@ -1087,6 +1196,9 @@ function MembersTable({ rows, onRefresh, onDelete }) {
                   <span style={os.dimText}>#{r.id}</span>
                 </td>
                 <td style={os.td}>{r.name}</td>
+                <td style={os.td}>
+                  <span style={os.dimText}>#{r.user_id}</span>
+                </td>
                 <td style={os.td}>{r.relation || "—"}</td>
                 <td style={{ ...os.td, fontSize: "10px" }}>
                   {(r.dietary_restrictions || [])
@@ -1177,11 +1289,17 @@ function MemberEditForm({ member, onSave }) {
 
 function NewMemberBtn({ onSaved }) {
   const [open, setOpen] = useState(false);
+  const [userId, setUserId] = useState("");
   const save = async (form) => {
+    if (!userId) {
+      toast.error("User ID is required");
+      return;
+    }
     try {
-      await api.post("/api/members", form);
+      await api.post(`/api/admin/members?user_id=${userId}`, form);
       onSaved();
       setOpen(false);
+      setUserId("");
       toast.success("Member created");
     } catch (err) {
       toast.error(extractError(err));
@@ -1194,7 +1312,19 @@ function NewMemberBtn({ onSaved }) {
       </button>
       {open && (
         <EditModal title="New Member" onClose={() => setOpen(false)}>
-          <MemberEditForm member={{}} onSave={save} />
+          <div style={os.formStack}>
+            <div style={os.formField}>
+              <label style={os.label}>User ID (required)</label>
+              <input
+                style={os.input}
+                type="number"
+                value={userId}
+                placeholder="Link to user #"
+                onChange={(e) => setUserId(e.target.value)}
+              />
+            </div>
+            <MemberEditForm member={{}} onSave={save} />
+          </div>
         </EditModal>
       )}
     </>
@@ -1608,9 +1738,9 @@ function MenuTable({ rows, onRefresh, onDelete }) {
   const save = async (id, patch) => {
     try {
       if (id) {
-        await api.patch(`/api/menu-items/${id}`, patch);
+        await api.patch(`/api/admin/menu-items/${id}`, patch);
       } else {
-        await api.post("/api/menu-items", patch);
+        await api.post("/api/admin/menu-items", patch);
       }
       onRefresh();
       setEditing(null);
@@ -1622,7 +1752,7 @@ function MenuTable({ rows, onRefresh, onDelete }) {
 
   const toggle = async (id, is_active) => {
     try {
-      await api.patch(`/api/menu-items/${id}`, { is_active });
+      await api.patch(`/api/admin/menu-items/${id}`, { is_active });
       onRefresh();
     } catch (err) {
       toast.error(extractError(err));
@@ -1806,7 +1936,7 @@ function NewMenuItemBtn({ onSaved }) {
   const [open, setOpen] = useState(false);
   const save = async (form) => {
     try {
-      await api.post("/api/menu-items", form);
+      await api.post("/api/admin/menu-items", form);
       onSaved();
       setOpen(false);
       toast.success("Item created");
@@ -1869,14 +1999,12 @@ const os = {
     letterSpacing: "0.08em",
     cursor: "pointer",
     textAlign: "left",
-    borderLeftWidth: "3px",
-    borderLeftStyle: "solid",
-    borderLeftColor: "transparent",
+    borderLeft: "3px solid transparent",
     transition: "all 0.1s",
   },
   sidebarActive: {
     color: "#e8e8e4",
-    borderLeftColor: "#c8783c",
+    borderLeft: "3px solid #c8783c",
     background: "rgba(200,120,60,0.1)",
   },
   main: { flex: 1, overflowY: "auto", padding: "32px", background: "#0d0d0b" },
@@ -2067,9 +2195,7 @@ const os = {
     padding: "10px 12px",
     background: "#1a1a18",
     borderRadius: "2px",
-    borderLeftWidth: "3px",
-    borderLeftStyle: "solid",
-    borderLeftColor: "#2a2a26",
+    borderLeft: "3px solid #2a2a26",
   },
   attendeeRow: {
     padding: "12px",

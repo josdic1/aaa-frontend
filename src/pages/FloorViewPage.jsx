@@ -72,7 +72,7 @@ export function FloorViewPage() {
   const [loading, setLoading] = useState(true);
   const [menuItems, setMenuItems] = useState([]);
   const [firing, setFiring] = useState(null);
-  const [panelTab, setPanelTab] = useState("orders"); // "orders" | "edit"
+  const [panelTab, setPanelTab] = useState("orders");
 
   const loadFloor = async () => {
     setLoading(true);
@@ -94,7 +94,8 @@ export function FloorViewPage() {
       ];
       const results = await Promise.all(
         reservationIds.map((rid) =>
-          api.get(`/api/reservations/${rid}/bootstrap`).catch(() => null),
+          // Use admin bootstrap so staff/admin can see all reservations
+          api.get(`/api/admin/reservations/${rid}/bootstrap`).catch(() => null),
         ),
       );
       const bsMap = {};
@@ -155,10 +156,11 @@ export function FloorViewPage() {
       await loadFloor();
       toast.success("Order fired");
     } catch (err) {
-      const _msg = Array.isArray(err?.detail)
-        ? err.detail.map((e) => e.msg).join(", ")
-        : err?.detail || "Failed";
-      toast.error(_msg);
+      toast.error(
+        Array.isArray(err?.detail)
+          ? err.detail.map((e) => e.msg).join(", ")
+          : err?.detail || "Failed",
+      );
     } finally {
       setFiring(null);
     }
@@ -169,10 +171,11 @@ export function FloorViewPage() {
       await api.delete(`/api/order-items/${itemId}`);
       await loadFloor();
     } catch (err) {
-      const _msg = Array.isArray(err?.detail)
-        ? err.detail.map((e) => e.msg).join(", ")
-        : err?.detail || "Failed";
-      toast.error(_msg);
+      toast.error(
+        Array.isArray(err?.detail)
+          ? err.detail.map((e) => e.msg).join(", ")
+          : err?.detail || "Failed",
+      );
     }
   };
 
@@ -185,10 +188,11 @@ export function FloorViewPage() {
       });
       await loadFloor();
     } catch (err) {
-      const _msg = Array.isArray(err?.detail)
-        ? err.detail.map((e) => e.msg).join(", ")
-        : err?.detail || "Failed";
-      toast.error(_msg);
+      toast.error(
+        Array.isArray(err?.detail)
+          ? err.detail.map((e) => e.msg).join(", ")
+          : err?.detail || "Failed",
+      );
     }
   };
 
@@ -209,7 +213,6 @@ export function FloorViewPage() {
 
   return (
     <div style={s.root}>
-      {/* FLOOR */}
       <div style={s.floor}>
         <div style={s.floorHeader}>
           <h1 style={s.floorTitle}>
@@ -229,7 +232,6 @@ export function FloorViewPage() {
           />
         </div>
 
-        {/* Legend */}
         <div style={s.legend}>
           {Object.entries(HEAT).map(([key, { bg, border, label }]) => (
             <div
@@ -241,9 +243,7 @@ export function FloorViewPage() {
                   width: "13px",
                   height: "13px",
                   background: bg,
-                  borderWidth: "2px",
-                  borderStyle: "solid",
-                  borderColor: border,
+                  border: `2px solid ${border}`,
                   borderRadius: "2px",
                   flexShrink: 0,
                 }}
@@ -255,7 +255,6 @@ export function FloorViewPage() {
           ))}
         </div>
 
-        {/* Rooms */}
         {Object.values(tablesByRoom).map(({ room, tables: rt }) => {
           if (rt.length === 0) return null;
           const cfg = ROOM_CONFIG[room.name] || { cols: 3, accent: "#444" };
@@ -264,9 +263,7 @@ export function FloorViewPage() {
               <div style={s.roomLabel}>
                 <span
                   style={{
-                    borderLeftWidth: "3px",
-                    borderLeftStyle: "solid",
-                    borderLeftColor: cfg.accent,
+                    borderLeft: `3px solid ${cfg.accent}`,
                     paddingLeft: "10px",
                     color: cfg.accent,
                   }}
@@ -283,7 +280,6 @@ export function FloorViewPage() {
                   {rt.length} table{rt.length !== 1 ? "s" : ""}
                 </span>
               </div>
-
               <div
                 style={{
                   ...s.tableGrid,
@@ -295,7 +291,6 @@ export function FloorViewPage() {
                   const { bg, border, text } = HEAT[heat];
                   const bs = getBootstrap(table.id);
                   const isSelected = selectedTable?.id === table.id;
-
                   return (
                     <button
                       key={table.id}
@@ -409,7 +404,6 @@ export function FloorViewPage() {
         })}
       </div>
 
-      {/* SIDE PANEL */}
       {selectedTable && (
         <div style={s.panel}>
           <div style={s.panelHeader}>
@@ -442,7 +436,6 @@ export function FloorViewPage() {
             </div>
           ) : (
             <>
-              {/* Res info */}
               <div style={s.resInfo}>
                 <div
                   style={{
@@ -494,7 +487,6 @@ export function FloorViewPage() {
                 </div>
               </div>
 
-              {/* Panel tabs — only show edit tab to admin/staff */}
               {isAdmin && (
                 <div style={s.panelTabs}>
                   <button
@@ -518,7 +510,6 @@ export function FloorViewPage() {
                 </div>
               )}
 
-              {/* ── ORDERS TAB ── */}
               {panelTab === "orders" && (
                 <>
                   <div style={s.panelLabel}>Seats</div>
@@ -540,7 +531,6 @@ export function FloorViewPage() {
                             : items.length > 0
                               ? "#d4a017"
                               : "#e53935";
-
                       return (
                         <button
                           key={att.id}
@@ -785,7 +775,6 @@ export function FloorViewPage() {
                 </>
               )}
 
-              {/* ── EDIT TAB ── */}
               {panelTab === "edit" && isAdmin && (
                 <ReservationEditPanel
                   bootstrap={selectedBs}
@@ -800,8 +789,6 @@ export function FloorViewPage() {
     </div>
   );
 }
-
-// ── RESERVATION EDIT PANEL ────────────────────────────────────────────────────
 
 function ReservationEditPanel({ bootstrap, allTables, onSaved }) {
   const res = bootstrap.reservation;
@@ -821,10 +808,11 @@ function ReservationEditPanel({ bootstrap, allTables, onSaved }) {
       toast.success("Saved");
       onSaved();
     } catch (err) {
-      const msg = Array.isArray(err?.detail)
-        ? err.detail.map((e) => e.msg).join(", ")
-        : err?.detail || "Failed to save";
-      toast.error(msg);
+      toast.error(
+        Array.isArray(err?.detail)
+          ? err.detail.map((e) => e.msg).join(", ")
+          : err?.detail || "Failed to save",
+      );
     } finally {
       setSaving(false);
     }
@@ -837,10 +825,11 @@ function ReservationEditPanel({ bootstrap, allTables, onSaved }) {
       onSaved();
       setEditingAttendee(null);
     } catch (err) {
-      const _msg = Array.isArray(err?.detail)
-        ? err.detail.map((e) => e.msg).join(", ")
-        : err?.detail || "Failed";
-      toast.error(_msg);
+      toast.error(
+        Array.isArray(err?.detail)
+          ? err.detail.map((e) => e.msg).join(", ")
+          : err?.detail || "Failed",
+      );
     }
   };
 
@@ -850,16 +839,16 @@ function ReservationEditPanel({ bootstrap, allTables, onSaved }) {
       toast.success("Removed");
       onSaved();
     } catch (err) {
-      const _msg = Array.isArray(err?.detail)
-        ? err.detail.map((e) => e.msg).join(", ")
-        : err?.detail || "Failed";
-      toast.error(_msg);
+      toast.error(
+        Array.isArray(err?.detail)
+          ? err.detail.map((e) => e.msg).join(", ")
+          : err?.detail || "Failed",
+      );
     }
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-      {/* Res fields */}
       <div>
         <div style={s.panelLabel}>Reservation #{res.id}</div>
         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -914,7 +903,6 @@ function ReservationEditPanel({ bootstrap, allTables, onSaved }) {
         </div>
       </div>
 
-      {/* Attendees */}
       <div
         style={{ borderTop: "1px solid var(--border-dim)", paddingTop: "14px" }}
       >
@@ -927,9 +915,7 @@ function ReservationEditPanel({ bootstrap, allTables, onSaved }) {
               padding: "8px",
               background: "var(--panel-2)",
               borderRadius: "var(--radius-sm)",
-              borderWidth: "1px",
-              borderStyle: "solid",
-              borderColor: "var(--border-dim)",
+              border: "1px solid var(--border-dim)",
             }}
           >
             <div
@@ -1043,9 +1029,7 @@ function AttendeeEditInline({ attendee, onSave }) {
                 cursor: "pointer",
                 borderRadius: "2px",
                 boxShadow: "none",
-                borderWidth: "1px",
-                borderStyle: "solid",
-                borderColor: on ? "var(--accent)" : "var(--border-dim)",
+                border: `1px solid ${on ? "var(--accent)" : "var(--border-dim)"}`,
                 background: on ? "var(--accent)" : "white",
                 color: on ? "white" : "var(--muted)",
               }}
@@ -1061,8 +1045,6 @@ function AttendeeEditInline({ attendee, onSave }) {
     </div>
   );
 }
-
-// ── STYLES ────────────────────────────────────────────────────────────────────
 
 const s = {
   root: { display: "flex", height: "100vh", overflow: "hidden" },
@@ -1083,9 +1065,7 @@ const s = {
   datePicker: {
     fontSize: "13px",
     padding: "6px 10px",
-    borderWidth: "2px",
-    borderStyle: "solid",
-    borderColor: "var(--border)",
+    border: "2px solid var(--border)",
     borderRadius: "var(--radius-sm)",
     color: "var(--text)",
     background: "white",
@@ -1109,8 +1089,7 @@ const s = {
   tableGrid: { display: "grid", gap: "12px" },
   tableBtn: {
     padding: "16px",
-    borderWidth: "2px",
-    borderStyle: "solid",
+    border: "2px solid transparent",
     borderRadius: "var(--radius-sm)",
     cursor: "pointer",
     textAlign: "center",
@@ -1125,9 +1104,7 @@ const s = {
   panel: {
     width: "300px",
     flexShrink: 0,
-    borderLeftWidth: "2px",
-    borderLeftStyle: "solid",
-    borderLeftColor: "var(--border)",
+    borderLeft: "2px solid var(--border)",
     overflowY: "auto",
     padding: "24px",
     background: "white",
@@ -1158,9 +1135,7 @@ const s = {
     background: "var(--panel-2)",
     borderRadius: "var(--radius-sm)",
     marginBottom: "14px",
-    borderWidth: "1px",
-    borderStyle: "solid",
-    borderColor: "var(--border-dim)",
+    border: "1px solid var(--border-dim)",
   },
   statusBadge: {
     fontSize: "9px",
@@ -1168,16 +1143,13 @@ const s = {
     letterSpacing: "0.08em",
     textTransform: "uppercase",
     padding: "2px 8px",
-    borderWidth: "1.5px",
-    borderStyle: "solid",
+    border: "1.5px solid currentColor",
     borderRadius: "2px",
     display: "inline-block",
   },
   panelTabs: {
     display: "flex",
-    borderBottomWidth: "2px",
-    borderBottomStyle: "solid",
-    borderBottomColor: "var(--border)",
+    borderBottom: "2px solid var(--border)",
     marginBottom: "16px",
   },
   panelTab: {
@@ -1189,15 +1161,16 @@ const s = {
     letterSpacing: "0.06em",
     background: "none",
     border: "none",
-    borderBottomWidth: "2px",
-    borderBottomStyle: "solid",
-    borderBottomColor: "transparent",
+    borderBottom: "2px solid transparent",
     boxShadow: "none",
     cursor: "pointer",
     color: "var(--muted)",
     marginBottom: "-2px",
   },
-  panelTabActive: { color: "var(--text)", borderBottomColor: "var(--accent)" },
+  panelTabActive: {
+    color: "var(--text)",
+    borderBottom: "2px solid var(--accent)",
+  },
   panelLabel: {
     fontSize: "10px",
     fontWeight: 900,
@@ -1216,8 +1189,7 @@ const s = {
     width: "50px",
     height: "50px",
     borderRadius: "50%",
-    borderWidth: "2px",
-    borderStyle: "solid",
+    border: "2px solid transparent",
     cursor: "pointer",
     display: "flex",
     flexDirection: "column",
@@ -1228,9 +1200,7 @@ const s = {
   },
   attendeePanel: {
     background: "var(--panel-2)",
-    borderWidth: "1px",
-    borderStyle: "solid",
-    borderColor: "var(--border-dim)",
+    border: "1px solid var(--border-dim)",
     borderRadius: "var(--radius-sm)",
     padding: "12px",
   },
@@ -1238,9 +1208,7 @@ const s = {
     fontSize: "9px",
     fontWeight: 700,
     padding: "2px 5px",
-    borderWidth: "1px",
-    borderStyle: "solid",
-    borderColor: "var(--border-dim)",
+    border: "1px solid var(--border-dim)",
     textTransform: "uppercase",
     letterSpacing: "0.05em",
     color: "var(--muted)",
@@ -1267,9 +1235,7 @@ const s = {
     alignItems: "center",
     padding: "7px 10px",
     background: "white",
-    borderWidth: "1px",
-    borderStyle: "solid",
-    borderColor: "var(--border-dim)",
+    border: "1px solid var(--border-dim)",
     borderRadius: "var(--radius-sm)",
     cursor: "pointer",
     boxShadow: "none",
@@ -1294,9 +1260,7 @@ const s = {
     fontSize: "11px",
     fontWeight: 700,
     background: "transparent",
-    borderWidth: "1.5px",
-    borderStyle: "solid",
-    borderColor: "var(--border)",
+    border: "1.5px solid var(--border)",
     borderRadius: "var(--radius-sm)",
     cursor: "pointer",
     color: "var(--text)",
@@ -1314,9 +1278,7 @@ const s = {
     width: "100%",
     padding: "6px 8px",
     fontSize: "12px",
-    borderWidth: "1.5px",
-    borderStyle: "solid",
-    borderColor: "var(--border)",
+    border: "1.5px solid var(--border)",
     borderRadius: "var(--radius-sm)",
     color: "var(--text)",
     background: "white",
@@ -1339,9 +1301,7 @@ const s = {
     fontSize: "10px",
     fontWeight: 700,
     background: "transparent",
-    borderWidth: "1px",
-    borderStyle: "solid",
-    borderColor: "var(--border)",
+    border: "1px solid var(--border)",
     borderRadius: "2px",
     cursor: "pointer",
     color: "var(--text)",
@@ -1352,9 +1312,7 @@ const s = {
     fontSize: "10px",
     fontWeight: 700,
     background: "transparent",
-    borderWidth: "1px",
-    borderStyle: "solid",
-    borderColor: "#c0392b",
+    border: "1px solid #c0392b",
     borderRadius: "2px",
     cursor: "pointer",
     color: "#c0392b",

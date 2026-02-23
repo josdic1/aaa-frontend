@@ -10,6 +10,7 @@ export function NavBar() {
 
   const isAdmin = user.role === "admin";
   const isStaff = user.role === "staff" || isAdmin;
+  const isMember = !isStaff;
 
   const roleColor =
     user.role === "admin"
@@ -28,15 +29,19 @@ export function NavBar() {
   return (
     <nav style={s.nav}>
       <div style={s.left}>
-        <Link to="/" style={s.logo}>
+        <Link to={isStaff ? "/admin" : "/home"} style={s.logo}>
           Abeyton Lodge
         </Link>
 
         <div style={s.links}>
+          {/* MEMBERS ONLY */}
+          {isMember && (
+            <Link to="/home" style={active("/home")}>
+              Home
+            </Link>
+          )}
+
           {/* ALL ROLES */}
-          <Link to="/" style={active("/home")}>
-            Home
-          </Link>
           <Link to="/menu" style={active("/menu")}>
             Menu
           </Link>
