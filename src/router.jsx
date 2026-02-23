@@ -5,6 +5,7 @@ import { AdminPage } from "./pages/AdminPage";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { LoginPage } from "./pages/LoginPage";
 import { MembersPage } from "./pages/MembersPage";
+import { MenuPage } from "./pages/MenuPage";
 import { SignupPage } from "./pages/SignupPage";
 import { HomePage } from "./pages/HomePage";
 import { ErrorPage } from "./pages/ErrorPage";
@@ -28,6 +29,7 @@ export const routes = [
           { path: "members", element: <MembersPage /> },
           { path: "reservations/new", element: <ReservationFormPage /> },
           { path: "reservations/:id", element: <ReservationDetailPage /> },
+          { path: "/menu", element: <MenuPage /> },
         ],
       },
       {
