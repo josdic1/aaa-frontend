@@ -1,5 +1,4 @@
-// src/pages/FloorViewPage.jsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { api } from "../utils/api";
 import { toast } from "sonner";
@@ -58,6 +57,12 @@ const DIETARY_OPTIONS = [
   "vegetarian",
 ];
 
+const stepDate = (dateStr, days) => {
+  const d = new Date(dateStr + "T12:00:00");
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split("T")[0];
+};
+
 export function FloorViewPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin" || user?.role === "staff";
@@ -66,35 +71,49 @@ export function FloorViewPage() {
   const [tables, setTables] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [bootstraps, setBootstraps] = useState({});
+  const [dailyReservations, setDailyReservations] = useState([]);
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [selectedTable, setSelectedTable] = useState(null);
   const [selectedAttendeeId, setSelectedAttendeeId] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [menuItems, setMenuItems] = useState([]);
   const [firing, setFiring] = useState(null);
   const [panelTab, setPanelTab] = useState("orders");
 
+  // Seat mode (pick unseated reservation -> click available table)
+  const [seatingReservation, setSeatingReservation] = useState(null);
+
+  // Reseat mode
+  const [reseating, setReseating] = useState(null);
+
+  // Order ensuring state
+  const [ensuring, setEnsuring] = useState(false);
+
   const loadFloor = async () => {
     setLoading(true);
+    setLoadError(false);
     try {
-      const [roomsData, tablesData, assignmentsData, menuData] =
+      const [roomsData, tablesData, assignmentsData, menuData, dailyData] =
         await Promise.all([
           api.get("/api/dining-rooms/"),
           api.get("/api/tables"),
-          api.get(`/api/admin/seat-assignments?date=${date}`),
+          api.get("/api/admin/seat-assignments", { params: { date } }),
           api.get("/api/menu-items"),
+          api.get("/api/admin/daily", { params: { date } }),
         ]);
+
       setRooms(roomsData);
       setTables(tablesData);
       setAssignments(assignmentsData);
       setMenuItems(menuData.filter((m) => m.is_active));
+      setDailyReservations(dailyData?.reservations || []);
 
       const reservationIds = [
         ...new Set(assignmentsData.map((a) => a.reservation_id)),
       ];
       const results = await Promise.all(
         reservationIds.map((rid) =>
-          // Use admin bootstrap so staff/admin can see all reservations
           api.get(`/api/admin/reservations/${rid}/bootstrap`).catch(() => null),
         ),
       );
@@ -104,6 +123,7 @@ export function FloorViewPage() {
       });
       setBootstraps(bsMap);
     } catch {
+      setLoadError(true);
       toast.error("Failed to load floor");
     } finally {
       setLoading(false);
@@ -112,9 +132,11 @@ export function FloorViewPage() {
 
   useEffect(() => {
     loadFloor();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date]);
 
   const getAssignment = (tid) => assignments.find((a) => a.table_id === tid);
+
   const getBootstrap = (tid) => {
     const a = getAssignment(tid);
     return a ? bootstraps[a.reservation_id] || null : null;
@@ -135,19 +157,45 @@ export function FloorViewPage() {
   const getName = (att) => att?.member?.name || att?.guest_name || "Guest";
 
   const selectedBs = selectedTable ? getBootstrap(selectedTable.id) : null;
+
   const selectedAttendee = selectedBs?.attendees?.find(
     (a) => a.id === selectedAttendeeId,
   );
+
   const selectedOrder = selectedAttendee
     ? selectedBs?.orders?.find((o) => o.attendee_id === selectedAttendee.id)
     : null;
+
   const selectedItems = selectedOrder
     ? (selectedBs?.order_items || []).filter(
         (i) => i.order_id === selectedOrder.id,
       )
     : [];
+
   const isLocked =
     selectedOrder?.status === "fired" || selectedOrder?.status === "fulfilled";
+
+  // ---- NEW: Ensure order exists for an attendee ----
+  const ensureOrderForAttendee = async (attendeeId) => {
+    if (!attendeeId) return null;
+    setEnsuring(true);
+    try {
+      const order = await api.post("/api/orders/ensure", {
+        attendee_id: attendeeId,
+      });
+      await loadFloor();
+      return order;
+    } catch (err) {
+      toast.error(
+        Array.isArray(err?.detail)
+          ? err.detail.map((e) => e.msg).join(", ")
+          : err?.detail || "Failed to ensure order",
+      );
+      return null;
+    } finally {
+      setEnsuring(false);
+    }
+  };
 
   const fireOrder = async (orderId) => {
     setFiring(orderId);
@@ -179,7 +227,32 @@ export function FloorViewPage() {
     }
   };
 
-  const addItem = async (orderId, menuItemId) => {
+  // ---- NEW: Update item (quantity/status) ----
+  const patchItem = async (itemId, patch) => {
+    try {
+      await api.patch(`/api/order-items/${itemId}`, patch);
+      await loadFloor();
+    } catch (err) {
+      toast.error(
+        Array.isArray(err?.detail)
+          ? err.detail.map((e) => e.msg).join(", ")
+          : err?.detail || "Failed",
+      );
+    }
+  };
+
+  // ---- UPDATED: Add item will ensure an order exists first ----
+  const addItem = async (menuItemId) => {
+    if (!selectedAttendee) return;
+
+    let orderId = selectedOrder?.id;
+
+    if (!orderId) {
+      const ensured = await ensureOrderForAttendee(selectedAttendee.id);
+      if (!ensured?.id) return;
+      orderId = ensured.id;
+    }
+
     try {
       await api.post(`/api/order-items/by-order/${orderId}`, {
         menu_item_id: menuItemId,
@@ -204,10 +277,155 @@ export function FloorViewPage() {
     return acc;
   }, {});
 
+  const assignedReservationIds = new Set(
+    assignments.map((a) => a.reservation_id),
+  );
+  const unseatedReservations = (dailyReservations || []).filter(
+    (r) => !r?.table?.table_id && !assignedReservationIds.has(r.reservation_id),
+  );
+
+  const isTableAvailable = (tableId) =>
+    !assignments.some((a) => a.table_id === tableId);
+
+  const seatReservationToTable = async (reservationId, table) => {
+    const partySize = seatingReservation?.party_size ?? null;
+
+    if (partySize && table?.seat_count && partySize > table.seat_count) {
+      toast.error(
+        `Party size (${partySize}) exceeds ${table.name} (${table.seat_count} seats)`,
+      );
+      return;
+    }
+
+    try {
+      await api.post("/api/seat-assignments", {
+        reservation_id: reservationId,
+        table_id: table.id,
+        notes: "Seated from Floor View",
+      });
+
+      toast.success(`Seated #${reservationId} at ${table.name}`);
+      setSeatingReservation(null);
+      setSelectedTable(null);
+      setSelectedAttendeeId(null);
+      await loadFloor();
+    } catch (err) {
+      toast.error(
+        Array.isArray(err?.detail)
+          ? err.detail.map((e) => e.msg).join(", ")
+          : err?.detail || "Failed to seat reservation",
+      );
+    }
+  };
+
+  const reseatReservationToTable = async (targetTable) => {
+    if (!reseating) return;
+
+    const { reservation_id, party_size, assignment_id } = reseating;
+
+    if (
+      party_size &&
+      targetTable?.seat_count &&
+      party_size > targetTable.seat_count
+    ) {
+      toast.error(
+        `Party size (${party_size}) exceeds ${targetTable.name} (${targetTable.seat_count} seats)`,
+      );
+      return;
+    }
+
+    if (!isTableAvailable(targetTable.id)) {
+      toast.error("That table is not available");
+      return;
+    }
+
+    try {
+      if (assignment_id != null) {
+        await api.patch(`/api/seat-assignments/${assignment_id}`, {
+          table_id: targetTable.id,
+          notes: "Moved from Floor View",
+        });
+      } else {
+        throw new Error("Missing assignment_id");
+      }
+
+      toast.success(`Moved #${reservation_id} to ${targetTable.name}`);
+      setReseating(null);
+      setSelectedTable(null);
+      setSelectedAttendeeId(null);
+      await loadFloor();
+      return;
+    } catch {
+      try {
+        if (assignment_id != null) {
+          await api.delete(`/api/seat-assignments/${assignment_id}`);
+        }
+        await api.post("/api/seat-assignments", {
+          reservation_id,
+          table_id: targetTable.id,
+          notes: "Moved from Floor View (recreate)",
+        });
+
+        toast.success(`Moved #${reservation_id} to ${targetTable.name}`);
+        setReseating(null);
+        setSelectedTable(null);
+        setSelectedAttendeeId(null);
+        await loadFloor();
+        return;
+      } catch (err2) {
+        toast.error(
+          Array.isArray(err2?.detail)
+            ? err2.detail.map((e) => e.msg).join(", ")
+            : err2?.detail || "Failed to move reservation (reseat)",
+        );
+      }
+    }
+  };
+
+  const modeBanner = useMemo(() => {
+    if (seatingReservation) {
+      return {
+        kind: "seat",
+        title: `Seating mode: #${seatingReservation.reservation_id} · ${seatingReservation.start_time?.slice(
+          0,
+          5,
+        )} · party ${seatingReservation.party_size}`,
+        sub: "Click an Available table to seat.",
+        onCancel: () => setSeatingReservation(null),
+      };
+    }
+    if (reseating) {
+      return {
+        kind: "move",
+        title: `Move mode: #${reseating.reservation_id} · party ${reseating.party_size}`,
+        sub: "Click an Available table to move this reservation.",
+        onCancel: () => setReseating(null),
+      };
+    }
+    return null;
+  }, [seatingReservation, reseating]);
+
+  const isInAnyMode = Boolean(seatingReservation || reseating);
+
   if (loading)
     return (
       <div className="page">
         <p className="muted">Loading floor...</p>
+      </div>
+    );
+
+  if (loadError)
+    return (
+      <div className="page" style={{ textAlign: "center", paddingTop: "80px" }}>
+        <p style={{ fontWeight: 700, marginBottom: "8px" }}>
+          Failed to load floor view.
+        </p>
+        <p className="muted" style={{ marginBottom: "20px" }}>
+          Check your connection and try again.
+        </p>
+        <button className="primary" onClick={loadFloor}>
+          Retry
+        </button>
       </div>
     );
 
@@ -220,16 +438,59 @@ export function FloorViewPage() {
             <br />
             View
           </h1>
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => {
-              setDate(e.target.value);
-              setSelectedTable(null);
-              setSelectedAttendeeId(null);
-            }}
-            style={s.datePicker}
-          />
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <button
+              className="ghost"
+              style={{ fontSize: "18px", padding: "4px 10px", lineHeight: 1 }}
+              onClick={() => {
+                setDate(stepDate(date, -1));
+                setSelectedTable(null);
+                setSelectedAttendeeId(null);
+                setSeatingReservation(null);
+                setReseating(null);
+              }}
+            >
+              ‹
+            </button>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => {
+                setDate(e.target.value);
+                setSelectedTable(null);
+                setSelectedAttendeeId(null);
+                setSeatingReservation(null);
+                setReseating(null);
+              }}
+              style={s.datePicker}
+            />
+            <button
+              className="ghost"
+              style={{ fontSize: "18px", padding: "4px 10px", lineHeight: 1 }}
+              onClick={() => {
+                setDate(stepDate(date, 1));
+                setSelectedTable(null);
+                setSelectedAttendeeId(null);
+                setSeatingReservation(null);
+                setReseating(null);
+              }}
+            >
+              ›
+            </button>
+            <button
+              className="ghost"
+              style={{ fontSize: "11px", fontWeight: 700 }}
+              onClick={() => {
+                setDate(new Date().toISOString().split("T")[0]);
+                setSelectedTable(null);
+                setSelectedAttendeeId(null);
+                setSeatingReservation(null);
+                setReseating(null);
+              }}
+            >
+              Today
+            </button>
+          </div>
         </div>
 
         <div style={s.legend}>
@@ -255,9 +516,176 @@ export function FloorViewPage() {
           ))}
         </div>
 
+        {modeBanner && (
+          <div
+            style={{
+              marginBottom: "14px",
+              border: "1px solid var(--border-dim)",
+              borderRadius: "var(--radius-sm)",
+              padding: "10px 12px",
+              background: "#fff",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: "10px",
+            }}
+          >
+            <div style={{ fontSize: "12px", fontWeight: 800, color: "#333" }}>
+              {modeBanner.title}
+              <div
+                style={{
+                  fontSize: "11px",
+                  color: "var(--muted)",
+                  marginTop: 2,
+                }}
+              >
+                {modeBanner.sub}
+              </div>
+            </div>
+            <button
+              type="button"
+              className="ghost"
+              style={{
+                fontSize: "11px",
+                fontWeight: 800,
+                padding: "6px 10px",
+                border: "1px solid var(--border)",
+                borderRadius: "8px",
+                cursor: "pointer",
+              }}
+              onClick={modeBanner.onCancel}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+
+        {unseatedReservations.length > 0 && (
+          <div style={{ marginBottom: "22px" }}>
+            <div style={{ ...s.roomLabel, marginBottom: "10px" }}>
+              <span
+                style={{
+                  borderLeft: "3px solid #888",
+                  paddingLeft: "10px",
+                  color: "#444",
+                }}
+              >
+                Unseated
+              </span>
+              <span
+                style={{
+                  fontSize: "11px",
+                  color: "var(--muted)",
+                  marginLeft: "8px",
+                }}
+              >
+                {unseatedReservations.length} reservation
+                {unseatedReservations.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+
+            <div style={{ display: "grid", gap: "8px" }}>
+              {unseatedReservations.map((r) => {
+                const isPicked =
+                  seatingReservation?.reservation_id === r.reservation_id;
+
+                return (
+                  <div
+                    key={r.reservation_id}
+                    style={{
+                      border: isPicked
+                        ? "2px solid var(--accent)"
+                        : "1px solid var(--border-dim)",
+                      borderRadius: "var(--radius-sm)",
+                      padding: "10px 12px",
+                      background: "white",
+                      opacity: reseating ? 0.6 : 1,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: "10px",
+                        alignItems: "center",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: "12px",
+                          fontWeight: 800,
+                          color: "var(--text)",
+                        }}
+                      >
+                        #{r.reservation_id} · {r.start_time?.slice(0, 5)} ·
+                        party {r.party_size}
+                      </div>
+
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "8px",
+                          alignItems: "center",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: "11px",
+                            color: "var(--muted)",
+                            textTransform: "uppercase",
+                            fontWeight: 800,
+                          }}
+                        >
+                          {r.status}
+                        </div>
+
+                        {isAdmin && (
+                          <button
+                            type="button"
+                            disabled={Boolean(reseating)}
+                            onClick={() =>
+                              setSeatingReservation(isPicked ? null : r)
+                            }
+                            style={{
+                              padding: "6px 10px",
+                              fontSize: "11px",
+                              fontWeight: 900,
+                              borderRadius: "8px",
+                              border: `1px solid ${isPicked ? "var(--accent)" : "var(--border)"}`,
+                              background: isPicked ? "var(--accent)" : "white",
+                              color: isPicked ? "white" : "#333",
+                              cursor: reseating ? "not-allowed" : "pointer",
+                              opacity: reseating ? 0.6 : 1,
+                            }}
+                          >
+                            {isPicked ? "Picked" : "Seat"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {r.notes ? (
+                      <div
+                        style={{
+                          marginTop: "4px",
+                          fontSize: "11px",
+                          color: "var(--muted)",
+                        }}
+                      >
+                        {r.notes}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {Object.values(tablesByRoom).map(({ room, tables: rt }) => {
           if (rt.length === 0) return null;
           const cfg = ROOM_CONFIG[room.name] || { cols: 3, accent: "#444" };
+
           return (
             <div key={room.id} style={s.roomBlock}>
               <div style={s.roomLabel}>
@@ -280,6 +708,7 @@ export function FloorViewPage() {
                   {rt.length} table{rt.length !== 1 ? "s" : ""}
                 </span>
               </div>
+
               <div
                 style={{
                   ...s.tableGrid,
@@ -290,27 +719,77 @@ export function FloorViewPage() {
                   const heat = getHeat(table.id);
                   const { bg, border, text } = HEAT[heat];
                   const bs = getBootstrap(table.id);
+                  const assignment = getAssignment(table.id);
+                  const failed = assignment && !bs && !loading;
                   const isSelected = selectedTable?.id === table.id;
+
+                  const available = isTableAvailable(table.id);
+
                   return (
                     <button
                       key={table.id}
                       onClick={() => {
+                        if (seatingReservation) {
+                          if (!available) {
+                            toast.error("That table is not available");
+                            return;
+                          }
+                          seatReservationToTable(
+                            seatingReservation.reservation_id,
+                            table,
+                          );
+                          return;
+                        }
+
+                        if (reseating) {
+                          if (!available) {
+                            toast.error("That table is not available");
+                            return;
+                          }
+                          reseatReservationToTable(table);
+                          return;
+                        }
+
                         setSelectedTable(isSelected ? null : table);
                         setSelectedAttendeeId(null);
                         setPanelTab("orders");
                       }}
                       style={{
                         ...s.tableBtn,
-                        background: bg,
-                        borderColor: isSelected ? "var(--accent)" : border,
-                        boxShadow: isSelected
-                          ? "0 0 0 3px var(--accent)"
-                          : "2px 2px 0 rgba(0,0,0,0.06)",
+                        background: failed ? "#fff0f0" : bg,
+                        borderColor: isSelected
+                          ? "var(--accent)"
+                          : failed
+                            ? "#c0392b"
+                            : border,
+                        boxShadow: isInAnyMode
+                          ? available
+                            ? "0 0 0 3px rgba(46, 125, 50, 0.25)"
+                            : "2px 2px 0 rgba(0,0,0,0.06)"
+                          : isSelected
+                            ? "0 0 0 3px var(--accent)"
+                            : "2px 2px 0 rgba(0,0,0,0.06)",
+                        opacity: isInAnyMode && !available ? 0.55 : 1,
+                        cursor:
+                          isInAnyMode && !available ? "not-allowed" : "pointer",
                       }}
+                      title={
+                        isInAnyMode
+                          ? available
+                            ? "Click to place reservation here"
+                            : "Not available"
+                          : undefined
+                      }
                     >
-                      <div style={{ ...s.tableName, color: text }}>
+                      <div
+                        style={{
+                          ...s.tableName,
+                          color: failed ? "#c0392b" : text,
+                        }}
+                      >
                         {table.name}
                       </div>
+
                       <div
                         style={{
                           fontSize: "10px",
@@ -321,7 +800,18 @@ export function FloorViewPage() {
                       >
                         {table.seat_count} seats
                       </div>
-                      {bs ? (
+
+                      {failed ? (
+                        <div
+                          style={{
+                            fontSize: "16px",
+                            marginTop: "8px",
+                            color: "#c0392b",
+                          }}
+                        >
+                          ?
+                        </div>
+                      ) : bs ? (
                         <div style={{ marginTop: "8px" }}>
                           <div
                             style={{
@@ -342,6 +832,7 @@ export function FloorViewPage() {
                           >
                             {formatPrice(bs.reservation_total)} est.
                           </div>
+
                           <div
                             style={{
                               display: "flex",
@@ -424,6 +915,55 @@ export function FloorViewPage() {
             </button>
           </div>
 
+          {isAdmin && (
+            <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
+              {(() => {
+                const a = getAssignment(selectedTable.id);
+                const bs = selectedBs;
+                if (!a || !bs) return null;
+
+                const isThisReseating =
+                  reseating?.reservation_id === a.reservation_id;
+
+                return (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSeatingReservation(null);
+
+                      if (isThisReseating) {
+                        setReseating(null);
+                        return;
+                      }
+
+                      setReseating({
+                        reservation_id: a.reservation_id,
+                        party_size: bs.party_size,
+                        from_table_id: selectedTable.id,
+                        assignment_id: a.id ?? a.assignment_id ?? null,
+                        start_time: bs.reservation?.start_time ?? null,
+                      });
+
+                      toast.message(
+                        "Move mode: click an available table to move.",
+                      );
+                    }}
+                    style={{
+                      ...s.ghostBtn,
+                      borderColor: isThisReseating
+                        ? "var(--accent)"
+                        : "var(--border)",
+                      color: isThisReseating ? "var(--accent)" : "var(--text)",
+                      fontWeight: 900,
+                    }}
+                  >
+                    {isThisReseating ? "Cancel Move" : "Move Table"}
+                  </button>
+                );
+              })()}
+            </div>
+          )}
+
           {!selectedBs ? (
             <div
               style={{
@@ -432,7 +972,9 @@ export function FloorViewPage() {
                 padding: "16px 0",
               }}
             >
-              No reservation assigned to this table today.
+              {getAssignment(selectedTable.id)
+                ? "Failed to load reservation data. Try refreshing."
+                : "No reservation assigned to this table today."}
             </div>
           ) : (
             <>
@@ -531,14 +1073,23 @@ export function FloorViewPage() {
                             : items.length > 0
                               ? "#d4a017"
                               : "#e53935";
+
                       return (
                         <button
                           key={att.id}
-                          onClick={() =>
-                            setSelectedAttendeeId(
-                              isThisSelected ? null : att.id,
-                            )
-                          }
+                          onClick={async () => {
+                            const next = isThisSelected ? null : att.id;
+                            setSelectedAttendeeId(next);
+                            if (!next) return;
+
+                            // NEW: if staff/admin selects seat with no order, auto-ensure it
+                            const existing = selectedBs.orders?.some(
+                              (o) => o.attendee_id === att.id,
+                            );
+                            if (!existing && isAdmin) {
+                              await ensureOrderForAttendee(att.id);
+                            }
+                          }}
                           style={{
                             ...s.seatDot,
                             borderColor: seatColor,
@@ -599,7 +1150,30 @@ export function FloorViewPage() {
                               {selectedOrder.status}
                             </span>
                           )}
+                          {!selectedOrder && (
+                            <div
+                              style={{
+                                fontSize: "11px",
+                                color: "var(--muted)",
+                                marginTop: "4px",
+                              }}
+                            >
+                              {ensuring ? "Creating order..." : "No order yet"}
+                            </div>
+                          )}
                         </div>
+                        {!selectedOrder && isAdmin && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              ensureOrderForAttendee(selectedAttendee.id)
+                            }
+                            disabled={ensuring}
+                            style={s.tinyBtn}
+                          >
+                            {ensuring ? "..." : "Create Order"}
+                          </button>
+                        )}
                       </div>
 
                       {selectedAttendee.dietary_restrictions?.length > 0 && (
@@ -623,6 +1197,7 @@ export function FloorViewPage() {
 
                       <div style={{ marginBottom: "10px" }}>
                         <div style={s.panelLabel}>Order</div>
+
                         {selectedItems.length === 0 ? (
                           <div
                             style={{ fontSize: "12px", color: "var(--muted)" }}
@@ -652,13 +1227,60 @@ export function FloorViewPage() {
                                   {item.quantity}
                                 </div>
                               </div>
+
                               <div
                                 style={{
                                   display: "flex",
                                   alignItems: "center",
-                                  gap: "6px",
+                                  gap: "8px",
                                 }}
                               >
+                                {!isLocked && (
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      gap: "6px",
+                                      alignItems: "center",
+                                    }}
+                                  >
+                                    <button
+                                      type="button"
+                                      style={s.qtyBtn}
+                                      onClick={() =>
+                                        patchItem(item.id, {
+                                          quantity: Math.max(
+                                            1,
+                                            (item.quantity || 1) - 1,
+                                          ),
+                                        })
+                                      }
+                                    >
+                                      −
+                                    </button>
+                                    <div
+                                      style={{
+                                        fontSize: "11px",
+                                        fontWeight: 900,
+                                        width: 18,
+                                        textAlign: "center",
+                                      }}
+                                    >
+                                      {item.quantity}
+                                    </div>
+                                    <button
+                                      type="button"
+                                      style={s.qtyBtn}
+                                      onClick={() =>
+                                        patchItem(item.id, {
+                                          quantity: (item.quantity || 1) + 1,
+                                        })
+                                      }
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+                                )}
+
                                 <span
                                   style={{
                                     fontSize: "12px",
@@ -668,9 +1290,10 @@ export function FloorViewPage() {
                                 >
                                   {formatPrice(
                                     (item.price_cents_snapshot || 0) *
-                                      item.quantity,
+                                      (item.quantity || 0),
                                   )}
                                 </span>
+
                                 {!isLocked && (
                                   <button
                                     onClick={() => removeItem(item.id)}
@@ -683,6 +1306,7 @@ export function FloorViewPage() {
                             </div>
                           ))
                         )}
+
                         {selectedOrder && selectedItems.length > 0 && (
                           <div
                             style={{
@@ -704,7 +1328,7 @@ export function FloorViewPage() {
                         )}
                       </div>
 
-                      {!isLocked && selectedOrder && (
+                      {!isLocked && isAdmin && (
                         <div style={{ marginBottom: "10px" }}>
                           <div style={s.panelLabel}>Add</div>
                           <div
@@ -718,7 +1342,7 @@ export function FloorViewPage() {
                               <button
                                 key={m.id}
                                 type="button"
-                                onClick={() => addItem(selectedOrder.id, m.id)}
+                                onClick={() => addItem(m.id)}
                                 style={s.addItemBtn}
                               >
                                 <span
@@ -757,6 +1381,7 @@ export function FloorViewPage() {
                               : "🔥 Fire Order"}
                           </button>
                         )}
+
                       {isLocked && selectedOrder && (
                         <button
                           style={s.ghostBtn}
@@ -804,7 +1429,25 @@ function ReservationEditPanel({ bootstrap, allTables, onSaved }) {
   const saveReservation = async () => {
     setSaving(true);
     try {
-      await api.patch(`/api/admin/reservations/${res.id}`, form);
+      const normalized = Object.fromEntries(
+        Object.entries(form).map(([k, v]) => [k, v === "" ? null : v]),
+      );
+
+      const original = {
+        date: res.date ?? null,
+        start_time: res.start_time ?? null,
+        status: res.status ?? null,
+        notes: res.notes ?? null,
+      };
+
+      const payload = {};
+      for (const [k, v] of Object.entries(normalized)) {
+        if (k === "date") continue;
+        if (v !== original[k]) payload[k] = v;
+      }
+
+      await api.patch(`/api/admin/reservations/${res.id}`, payload);
+
       toast.success("Saved");
       onSaved();
     } catch (err) {
@@ -953,6 +1596,7 @@ function ReservationEditPanel({ bootstrap, allTables, onSaved }) {
                 </button>
               </div>
             </div>
+
             {(att.dietary_restrictions || []).length > 0 && (
               <div
                 style={{
@@ -964,6 +1608,7 @@ function ReservationEditPanel({ bootstrap, allTables, onSaved }) {
                 {att.dietary_restrictions.join(", ")}
               </div>
             )}
+
             {editingAttendee === att.id && (
               <AttendeeEditInline
                 attendee={att}
@@ -982,6 +1627,7 @@ function AttendeeEditInline({ attendee, onSave }) {
     guest_name: attendee.guest_name || "",
     dietary_restrictions: attendee.dietary_restrictions || [],
   });
+
   const toggleDiet = (val) =>
     setForm((f) => ({
       ...f,
@@ -1113,7 +1759,7 @@ const s = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: "20px",
+    marginBottom: "12px",
   },
   panelTitle: {
     fontFamily: "Playfair Display, serif",
@@ -1228,6 +1874,17 @@ const s = {
     fontSize: "11px",
     cursor: "pointer",
     padding: 0,
+  },
+  qtyBtn: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    border: "1px solid var(--border-dim)",
+    background: "white",
+    cursor: "pointer",
+    fontWeight: 900,
+    lineHeight: 1,
+    boxShadow: "none",
   },
   addItemBtn: {
     display: "flex",

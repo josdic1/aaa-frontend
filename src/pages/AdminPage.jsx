@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useData } from "../hooks/useData";
 import { api } from "../utils/api";
+import { ReservationThermometer } from "../components/ReservationThermometer";
 
 function extractError(err) {
   if (!err) return "Something went wrong";
@@ -60,9 +61,22 @@ export function AdminPage() {
   };
 
   // Use admin route so lifecycle locks don't block status changes
+  // Add near top of file (below extractError is fine)
+  function sanitizeReservationPatch(patch) {
+    const out = {};
+    for (const [k, v] of Object.entries(patch || {})) {
+      if (k === "date") continue; // backend rejects date on PATCH
+      if (v === "" || v === undefined) continue;
+      out[k] = v;
+    }
+    return out;
+  }
+
+  // Use admin route so lifecycle locks don't block status changes
   const updateStatus = async (reservationId, status) => {
     try {
-      await api.patch(`/api/admin/reservations/${reservationId}`, { status });
+      const payload = sanitizeReservationPatch({ status });
+      await api.patch(`/api/admin/reservations/${reservationId}`, payload);
       await load();
       toast.success(`Reservation ${status}`);
     } catch (err) {
@@ -72,7 +86,18 @@ export function AdminPage() {
 
   const openAssignModal = (res) => {
     setAssigning(res);
-    setSelectedRoomId("");
+
+    // If this reservation already has a seat assignment, preselect that table + its room.
+    const existing = getAssignment(res.reservation_id);
+    if (existing) {
+      const t = tables.find((x) => x.id === existing.table_id);
+      setSelectedRoomId(t ? String(t.dining_room_id) : "");
+      setSelectedTableId(String(existing.table_id));
+      return;
+    }
+
+    // Otherwise fall back to booking preference (room) with no table selected.
+    setSelectedRoomId(res.dining_room_id ? String(res.dining_room_id) : "");
     setSelectedTableId("");
   };
 
@@ -159,17 +184,48 @@ export function AdminPage() {
           <h1 style={{ fontSize: "28px", marginBottom: "4px" }}>Admin</h1>
           <p className="muted">Manage reservations, seating, and orders.</p>
         </div>
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          style={{
-            fontSize: "13px",
-            padding: "6px 10px",
-            border: "2px solid var(--border)",
-            borderRadius: "var(--radius-sm)",
-          }}
-        />
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <button
+            className="ghost"
+            style={{ fontSize: "18px", padding: "4px 10px", lineHeight: 1 }}
+            onClick={() => {
+              const d = new Date(date + "T12:00:00");
+              d.setDate(d.getDate() - 1);
+              setDate(d.toISOString().split("T")[0]);
+            }}
+          >
+            ‹
+          </button>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            style={{
+              fontSize: "13px",
+              padding: "6px 10px",
+              border: "2px solid var(--border)",
+              borderRadius: "var(--radius-sm)",
+            }}
+          />
+          <button
+            className="ghost"
+            style={{ fontSize: "18px", padding: "4px 10px", lineHeight: 1 }}
+            onClick={() => {
+              const d = new Date(date + "T12:00:00");
+              d.setDate(d.getDate() + 1);
+              setDate(d.toISOString().split("T")[0]);
+            }}
+          >
+            ›
+          </button>
+          <button
+            className="ghost"
+            style={{ fontSize: "11px", fontWeight: 700 }}
+            onClick={() => setDate(new Date().toISOString().split("T")[0])}
+          >
+            Today
+          </button>
+        </div>
       </div>
 
       <div style={s.tabs}>
@@ -210,6 +266,8 @@ export function AdminPage() {
                     >
                       #{res.reservation_id} · {res.party_size} guest
                       {res.party_size !== 1 ? "s" : ""}
+                      {res.dining_room_id &&
+                        ` · Prefers: ${(diningRooms || []).find((r) => r.id === res.dining_room_id)?.name || "—"}`}
                       {res.message_count > 0 &&
                         ` · ${res.message_count} message${res.message_count !== 1 ? "s" : ""}`}
                     </div>
@@ -234,6 +292,15 @@ export function AdminPage() {
                   >
                     {res.status}
                   </span>
+                </div>
+
+                {/* Thermometer */}
+                <div style={{ padding: "12px 0 4px" }}>
+                  <ReservationThermometer
+                    reservation={res}
+                    adminData={res}
+                    size="compact"
+                  />
                 </div>
 
                 <div style={s.assignRow}>
@@ -513,7 +580,7 @@ const s = {
     borderBottom: "2px solid transparent",
     marginBottom: "-2px",
   },
-  tabActive: { color: "var(--text)", borderBottomColor: "var(--accent)" },
+  tabActive: { color: "var(--text)", borderBottom: "2px solid var(--accent)" },
   badge: {
     fontSize: "10px",
     fontWeight: 900,

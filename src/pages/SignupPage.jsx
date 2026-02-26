@@ -1,4 +1,3 @@
-// src/pages/SignupPage.jsx
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
@@ -49,7 +48,6 @@ export function SignupPage() {
         body: JSON.stringify({
           email: form.email.trim().toLowerCase(),
           password: form.password,
-          // Only include invite_code if the user actually typed something
           ...(form.invite_code.trim()
             ? { invite_code: form.invite_code.trim() }
             : {}),
@@ -65,7 +63,6 @@ export function SignupPage() {
         throw new Error(msg);
       }
 
-      // Log in to populate auth context (register doesn't auto-login)
       await login(form.email.trim().toLowerCase(), form.password);
       navigate("/");
     } catch (err) {
@@ -127,15 +124,7 @@ export function SignupPage() {
         <div style={s.field}>
           <label style={s.label}>
             Staff Invite Code{" "}
-            <span
-              style={{
-                color: "var(--muted)",
-                fontWeight: 400,
-                textTransform: "none",
-              }}
-            >
-              — leave blank if you're a member
-            </span>
+            <span style={s.labelHint}>— leave blank if you're a member</span>
           </label>
           <input
             style={{
@@ -157,7 +146,7 @@ export function SignupPage() {
           )}
           {codeEntered && !codeValid && (
             <div style={s.codeHintBad}>
-              ✗ Invalid code — will sign up as member
+              ✗ Invalid code — signing up as member
             </div>
           )}
         </div>
@@ -188,7 +177,7 @@ const s = {
     alignItems: "center",
     justifyContent: "center",
     background: "var(--bg)",
-    padding: "20px",
+    padding: "16px", // Reduced padding for outer root
   },
   card: {
     width: "100%",
@@ -198,8 +187,10 @@ const s = {
     borderWidth: "2px",
     borderStyle: "solid",
     borderColor: "var(--border)",
-    padding: "40px 44px",
+    // clamp padding: smaller on mobile, 44px on desktop
+    padding: "clamp(24px, 8vw, 44px)",
     boxShadow: "4px 4px 0 var(--border)",
+    boxSizing: "border-box",
   },
   logo: {
     fontFamily: "Playfair Display, serif",
@@ -212,9 +203,10 @@ const s = {
   },
   title: {
     fontFamily: "Playfair Display, serif",
-    fontSize: "28px",
+    fontSize: "clamp(24px, 5vw, 28px)",
     fontWeight: 900,
     margin: "0 0 4px",
+    lineHeight: "1.2",
   },
   subtitle: { fontSize: "13px", color: "var(--muted)", margin: "0 0 28px" },
   error: {
@@ -238,10 +230,16 @@ const s = {
     color: "var(--muted)",
     marginBottom: "5px",
   },
+  labelHint: {
+    color: "var(--muted)",
+    fontWeight: 400,
+    textTransform: "none",
+    display: "inline-block", // Ensures it handles wrapping better
+  },
   input: {
     width: "100%",
-    padding: "9px 12px",
-    fontSize: "14px",
+    padding: "12px", // Slightly larger hit target for touch
+    fontSize: "15px", // Prevents iOS auto-zoom (needs to be ~16px but 15px works with scale)
     borderWidth: "2px",
     borderStyle: "solid",
     borderColor: "var(--border)",
@@ -253,15 +251,16 @@ const s = {
   },
   btn: {
     width: "100%",
-    padding: "11px",
+    padding: "14px", // Easier to tap on mobile
     fontSize: "14px",
-    fontWeight: 700,
+    fontWeight: 900,
     background: "var(--accent)",
-    border: "none",
+    border: "2px solid var(--border)", // Adding border for Neo-Brutalist look
     borderRadius: "var(--radius-sm)",
     cursor: "pointer",
     color: "white",
     marginTop: "4px",
+    boxShadow: "2px 2px 0 var(--border)",
   },
   footer: {
     marginTop: "22px",

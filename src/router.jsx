@@ -1,4 +1,3 @@
-// src/router.jsx
 import { Navigate } from "react-router-dom";
 import App from "./App";
 import { AdminRoute } from "./components/AdminRoute";
@@ -18,10 +17,13 @@ import { useAuth } from "./hooks/useAuth";
 
 function RootIndex() {
   const { user } = useAuth();
+
   if (!user) return <Navigate to="/login" replace />;
+
   if (user.role === "admin" || user.role === "staff") {
     return <Navigate to="/admin" replace />;
   }
+
   return <HomePage />;
 }
 
@@ -33,17 +35,22 @@ export const routes = [
     children: [
       { path: "login", element: <LoginPage /> },
       { path: "signup", element: <SignupPage /> },
+      { path: "menu", element: <MenuPage /> },
+
+      // IMPORTANT: index is NOT wrapped by ProtectedRoute
+      // RootIndex alone decides where "/" should go.
+      { index: true, element: <RootIndex /> },
+
       {
         element: <ProtectedRoute />,
         children: [
-          { index: true, element: <RootIndex /> },
           { path: "home", element: <HomePage /> },
           { path: "members", element: <MembersPage /> },
           { path: "reservations/new", element: <ReservationFormPage /> },
           { path: "reservations/:id", element: <ReservationDetailPage /> },
-          { path: "menu", element: <MenuPage /> },
         ],
       },
+
       {
         element: <AdminRoute />,
         children: [

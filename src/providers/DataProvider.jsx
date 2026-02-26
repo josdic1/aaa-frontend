@@ -19,8 +19,9 @@ export function DataProvider({ children }) {
     if (!user) return;
     setLoading(true);
     setError(null);
+
     try {
-      const [res, menu, rooms, tbls, mems, schemaData] = await Promise.all([
+      const results = await Promise.allSettled([
         api.get("/api/reservations"),
         api.get("/api/menu-items"),
         api.get("/api/dining-rooms"),
@@ -28,13 +29,30 @@ export function DataProvider({ children }) {
         api.get("/api/members"),
         api.get("/api/schema"),
       ]);
-      setSchema(schemaData);
-      setReservations(res);
-      setMenuItems(menu);
-      setDiningRooms(rooms);
-      setTables(tbls);
-      setMembers(mems);
+
+      // Map results to setters
+      const setters = [
+        setReservations,
+        setMenuItems,
+        setDiningRooms,
+        setTables,
+        setMembers,
+        setSchema,
+      ];
+
+      results.forEach((result, index) => {
+        if (result.status === "fulfilled") {
+          setters[index](result.value);
+        } else {
+          console.error(
+            `❌ DataProvider: Request ${index} failed:`,
+            result.reason,
+          );
+          // Optional: Set a partial error state so the UI knows some data is missing
+        }
+      });
     } catch (err) {
+      // This only catches if the actual code inside 'try' breaks
       setError(err);
     } finally {
       setLoading(false);

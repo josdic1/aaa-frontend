@@ -45,13 +45,14 @@ function Badge({ children, color }) {
   return (
     <span
       style={{
-        fontSize: "9px",
+        fontSize: "10px", // Slightly larger
         fontWeight: 900,
         letterSpacing: "0.08em",
         textTransform: "uppercase",
         padding: "2px 8px",
-        border: `1.5px solid ${color || "#888"}`,
-        color: color || "#888",
+        border: `2px solid ${color || "#aaa"}`, // Thicker border
+        color: color || "#aaa",
+        background: "rgba(0,0,0,0.3)", // Subtle backing
         borderRadius: "2px",
         display: "inline-block",
       }}
@@ -1963,8 +1964,9 @@ function NewMenuItemBtn({ onSaved }) {
 const os = {
   root: {
     display: "flex",
-    height: "100vh",
-    overflow: "hidden",
+    height: "100vh", // Lock the root to the screen height
+    width: "100vw",
+    overflow: "hidden", // Prevent the body from scrolling
     background: "#0d0d0b",
     color: "#e8e8e4",
     fontFamily: "inherit",
@@ -1978,6 +1980,7 @@ const os = {
     flexDirection: "column",
     padding: "24px 0",
     gap: "2px",
+    overflowY: "auto", // Sidebar can scroll if many tabs are added
   },
   sidebarTitle: {
     color: "#e8e8e4",
@@ -2007,7 +2010,15 @@ const os = {
     borderLeft: "3px solid #c8783c",
     background: "rgba(200,120,60,0.1)",
   },
-  main: { flex: 1, overflowY: "auto", padding: "32px", background: "#0d0d0b" },
+  main: {
+    flex: 1,
+    height: "100%", // Fill the available height in the flex container
+    overflowY: "auto", // Enable the scrollbar here
+    padding: "32px",
+    background: "#0d0d0b",
+    scrollbarWidth: "thin",
+    scrollbarColor: "#3a3a36 transparent",
+  },
   mainHeader: {
     display: "flex",
     justifyContent: "space-between",
@@ -2102,11 +2113,14 @@ const os = {
   overlay: {
     position: "fixed",
     inset: 0,
-    background: "rgba(0,0,0,0.7)",
+    background: "rgba(0,0,0,0.85)",
     display: "flex",
-    alignItems: "center",
+    alignItems: "flex-start", // Change to flex-start so long modals can be scrolled
     justifyContent: "center",
     zIndex: 1000,
+    overflowY: "auto", // The overlay becomes the scrollable container for the modal
+    padding: "40px 20px",
+    backdropFilter: "blur(4px)",
   },
   modal: {
     background: "#141412",
@@ -2116,9 +2130,8 @@ const os = {
     width: "480px",
     maxWidth: "90vw",
     boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
-    maxHeight: "85vh",
-    overflowY: "auto",
     color: "#e8e8e4",
+    marginBottom: "40px", // Extra space so the bottom isn't cut off
   },
   modalTitle: {
     fontFamily: "Playfair Display, serif",

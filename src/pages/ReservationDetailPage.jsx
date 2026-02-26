@@ -3,14 +3,18 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useData } from "../hooks/useData";
+import { useAuth } from "../hooks/useAuth";
 import { api } from "../utils/api";
+import { ReservationThermometer } from "../components/ReservationThermometer";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8080";
 
 export function ReservationDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { menuItems } = useData();
+  const { menuItems, diningRooms, members, refresh: refreshGlobal } = useData();
+  const { user } = useAuth();
+  const isStaff = user?.role === "admin" || user?.role === "staff";
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -32,57 +36,41 @@ export function ReservationDetailPage() {
 
   useEffect(() => {
     fetchBootstrap();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
-
-  // IMPORTANT:
-  // - api.patch(/api/reservations/:id) returns ReservationRead (ReservationRead)
-  // - Bootstrap endpoint is what drives your pill, so we refresh bootstrap
-  // - But to avoid the UI “sticking” when bootstrap fetch is cached/slow,
-  //   we also update local state immediately from the PATCH response.
-  const patchReservationStatus = async (nextStatus, successMsg) => {
-    try {
-      const updated = await api.patch(`/api/reservations/${id}`, {
-        status: nextStatus,
-      });
-
-      // optimistic local update so the pill changes immediately
-      setData((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          reservation: {
-            ...prev.reservation,
-            status: updated.status,
-          },
-        };
-      });
-
-      // hard refresh from server
-      await fetchBootstrap();
-      if (successMsg) toast.success(successMsg);
-    } catch (err) {
-      toast.error(err?.detail || "Failed to update reservation");
-      // re-sync in case optimistic update was wrong
-      await fetchBootstrap().catch(() => {});
-    }
-  };
 
   const confirmReservation = async () => {
     setConfirming(true);
     try {
-      await patchReservationStatus("confirmed", "Reservation confirmed");
+      await api.patch(`/api/reservations/${id}`, { status: "confirmed" });
+      await fetchBootstrap();
+      await refreshGlobal();
+      toast.success("Reservation confirmed");
+    } catch (err) {
+      toast.error(err.detail || "Failed to confirm");
     } finally {
       setConfirming(false);
     }
   };
 
   const cancelReservation = async () => {
-    await patchReservationStatus("cancelled", "Reservation cancelled");
+    try {
+      await api.patch(`/api/reservations/${id}`, { status: "cancelled" });
+      await fetchBootstrap();
+      await refreshGlobal();
+      toast.success("Reservation cancelled");
+    } catch (err) {
+      toast.error(err.detail || "Failed to cancel");
+    }
   };
 
   const restoreDraft = async () => {
-    await patchReservationStatus("draft", "Restored to draft");
+    try {
+      await api.patch(`/api/reservations/${id}`, { status: "draft" });
+      await fetchBootstrap();
+      await refreshGlobal();
+    } catch (err) {
+      toast.error(err.detail || "Failed to restore");
+    }
   };
 
   const addItem = async (orderId, menuItemId) => {
@@ -94,7 +82,7 @@ export function ReservationDetailPage() {
       });
       await fetchBootstrap();
     } catch (err) {
-      toast.error(err?.detail || "Failed to add item");
+      toast.error(err.detail || "Failed to add item");
     }
   };
 
@@ -103,7 +91,7 @@ export function ReservationDetailPage() {
       await api.delete(`/api/order-items/${itemId}`);
       await fetchBootstrap();
     } catch (err) {
-      toast.error(err?.detail || "Failed to remove item");
+      toast.error(err.detail || "Failed to remove item");
     }
   };
 
@@ -114,7 +102,7 @@ export function ReservationDetailPage() {
       await fetchBootstrap();
       toast.success("Order fired to kitchen");
     } catch (err) {
-      toast.error(err?.detail || "Failed to fire order");
+      toast.error(err.detail || "Failed to fire order");
     } finally {
       setFiring(null);
     }
@@ -122,22 +110,15 @@ export function ReservationDetailPage() {
 
   const fireAllUnfired = async () => {
     if (!data) return;
-
     const unfired = data.orders.filter((o) => {
       const items = data.order_items.filter((i) => i.order_id === o.id);
       return o.status === "open" && items.length > 0;
     });
-
     if (unfired.length === 0) {
       toast.error("No unfired orders with items");
       return;
     }
-
-    for (const order of unfired) {
-      // eslint-disable-next-line no-await-in-loop
-      await fireOrder(order.id);
-    }
-
+    for (const order of unfired) await fireOrder(order.id);
     toast.success(
       `Fired ${unfired.length} order${unfired.length !== 1 ? "s" : ""}`,
     );
@@ -152,7 +133,6 @@ export function ReservationDetailPage() {
         <p className="muted">Loading...</p>
       </div>
     );
-
   if (!data) return null;
 
   const {
@@ -167,19 +147,16 @@ export function ReservationDetailPage() {
 
   const getOrderForAttendee = (aId) =>
     orders.find((o) => o.attendee_id === aId);
-
   const getItemsForOrder = (oId) =>
     order_items.filter((i) => i.order_id === oId);
-
   const getAttendeeName = (a) => a.member?.name || a.guest_name || "Guest";
 
   const formatTime = (t) => {
     if (!t) return "";
     const [h, m] = t.split(":");
-    const hour = parseInt(h, 10);
+    const hour = parseInt(h);
     return `${hour % 12 === 0 ? 12 : hour % 12}:${m} ${hour < 12 ? "AM" : "PM"}`;
   };
-
   const formatPrice = (cents) => `$${((cents || 0) / 100).toFixed(2)}`;
 
   const unfiredWithItems = orders.filter((o) => {
@@ -197,7 +174,6 @@ export function ReservationDetailPage() {
     cancelled: "#c0392b",
     fired: "#c8783c",
     fulfilled: "#2e7d32",
-    open: "#888",
   };
 
   return (
@@ -212,7 +188,6 @@ export function ReservationDetailPage() {
           >
             ← Back
           </button>
-
           <h1 style={{ fontSize: "28px", marginBottom: "4px" }}>
             {new Date(reservation.date + "T12:00:00").toLocaleDateString(
               "en-US",
@@ -224,7 +199,6 @@ export function ReservationDetailPage() {
               },
             )}
           </h1>
-
           <div
             style={{
               display: "flex",
@@ -239,7 +213,6 @@ export function ReservationDetailPage() {
                 ? ` — ${formatTime(reservation.end_time)}`
                 : ""}
             </span>
-
             <span
               style={{
                 ...s.badge,
@@ -249,16 +222,32 @@ export function ReservationDetailPage() {
             >
               {reservation.status}
             </span>
-
             <span className="muted" style={{ fontSize: "11px" }}>
               #{reservation.id}
             </span>
-          </div>
 
+            {reservation.dining_room_id && (
+              <span className="muted" style={{ fontSize: "11px" }}>
+                📍{" "}
+                {(diningRooms || []).find(
+                  (r) => r.id === reservation.dining_room_id,
+                )?.name || "—"}
+              </span>
+            )}
+          </div>
           {reservation.notes && (
             <p className="muted" style={{ marginTop: "8px" }}>
               {reservation.notes}
             </p>
+          )}
+
+          {/* ROOM PREFERENCE — editable if not cancelled */}
+          {!isCancelled && (
+            <RoomPreferenceEditor
+              reservation={reservation}
+              diningRooms={diningRooms || []}
+              onUpdated={fetchBootstrap}
+            />
           )}
 
           <div
@@ -283,13 +272,11 @@ export function ReservationDetailPage() {
                 </button>
               </>
             )}
-
             {isConfirmed && (
               <button onClick={cancelReservation} style={s.cancelBtn}>
                 Cancel Reservation
               </button>
             )}
-
             {isCancelled && (
               <button onClick={restoreDraft} style={s.ghostActionBtn}>
                 Restore to Draft
@@ -311,6 +298,15 @@ export function ReservationDetailPage() {
         </div>
       </div>
 
+      {/* THERMOMETER */}
+      <div style={{ marginBottom: "28px" }}>
+        <ReservationThermometer
+          reservation={reservation}
+          detailData={data}
+          size="default"
+        />
+      </div>
+
       {/* TABS */}
       <div style={s.tabs}>
         <button
@@ -327,8 +323,8 @@ export function ReservationDetailPage() {
         </button>
       </div>
 
-      {/* FIRE ALL BANNER */}
-      {unfiredWithItems.length > 0 && (
+      {/* FIRE ALL BANNER — staff only */}
+      {isStaff && unfiredWithItems.length > 0 && (
         <div style={s.fireBanner}>
           <span>
             {unfiredWithItems.length} order
@@ -350,7 +346,6 @@ export function ReservationDetailPage() {
             const isLocked =
               order?.status === "fired" || order?.status === "fulfilled";
             const name = getAttendeeName(attendee);
-
             const rowAccent = !order
               ? "var(--border)"
               : isLocked
@@ -381,7 +376,6 @@ export function ReservationDetailPage() {
                       </div>
                     )}
                   </div>
-
                   <div style={{ textAlign: "right" }}>
                     {order && (
                       <>
@@ -483,7 +477,7 @@ export function ReservationDetailPage() {
                     gap: "8px",
                   }}
                 >
-                  {!isLocked && order && items.length > 0 && (
+                  {isStaff && !isLocked && order && items.length > 0 && (
                     <button
                       onClick={() => fireOrder(order.id)}
                       disabled={firing === order.id}
@@ -492,7 +486,7 @@ export function ReservationDetailPage() {
                       {firing === order.id ? "Firing..." : "🔥 Fire Order"}
                     </button>
                   )}
-                  {isLocked && order && (
+                  {isStaff && isLocked && order && (
                     <button
                       onClick={() => openChit(order.id)}
                       style={s.ghostActionBtn}
@@ -515,12 +509,8 @@ export function ReservationDetailPage() {
           orderItems={order_items}
           orderTotals={order_totals}
           reservationTotal={reservation_total}
-          getOrderForAttendee={(aId) =>
-            orders.find((o) => o.attendee_id === aId)
-          }
-          getItemsForOrder={(oId) =>
-            order_items.filter((i) => i.order_id === oId)
-          }
+          getOrderForAttendee={getOrderForAttendee}
+          getItemsForOrder={getItemsForOrder}
           getAttendeeName={getAttendeeName}
           formatPrice={formatPrice}
           onFire={fireOrder}
@@ -529,8 +519,20 @@ export function ReservationDetailPage() {
           menuItems={menuItems}
           firing={firing}
           openChit={openChit}
+          isStaff={isStaff}
         />
       )}
+
+      {/* ATTENDEES */}
+      <div className="card" style={{ marginTop: "20px" }}>
+        <AttendeeManager
+          reservation={reservation}
+          attendees={attendees}
+          members={members || []}
+          onUpdated={fetchBootstrap}
+          isCancelled={isCancelled}
+        />
+      </div>
 
       {/* MESSAGES */}
       <div className="card" style={{ marginTop: "20px" }}>
@@ -574,6 +576,7 @@ function TableStatusView({
   menuItems,
   firing,
   openChit,
+  isStaff,
 }) {
   const [selected, setSelected] = useState(null);
 
@@ -605,7 +608,6 @@ function TableStatusView({
             const order = getOrderForAttendee(attendee.id);
             const items = getItemsForOrder(order?.id);
             const isSelected = selected === attendee.id;
-
             const seatColor = !order
               ? "#aaa"
               : order.status === "fired" || order.status === "fulfilled"
@@ -715,7 +717,6 @@ function TableStatusView({
               </div>
             );
           })}
-
           <div
             style={{ ...s.summaryCell, borderLeft: "2px solid var(--border)" }}
           >
@@ -830,7 +831,6 @@ function TableStatusView({
                 </div>
               ))
             )}
-
             {selectedOrder && (
               <div
                 style={{
@@ -874,17 +874,19 @@ function TableStatusView({
           )}
 
           <div style={{ marginTop: "16px" }}>
-            {!isLocked && selectedOrder && selectedItems.length > 0 && (
-              <button
-                style={{ ...s.fireBtn, width: "100%" }}
-                onClick={() => onFire(selectedOrder.id)}
-                disabled={firing === selectedOrder.id}
-              >
-                {firing === selectedOrder.id ? "Firing..." : "🔥 Fire Order"}
-              </button>
-            )}
-
-            {isLocked && selectedOrder && (
+            {isStaff &&
+              !isLocked &&
+              selectedOrder &&
+              selectedItems.length > 0 && (
+                <button
+                  style={{ ...s.fireBtn, width: "100%" }}
+                  onClick={() => onFire(selectedOrder.id)}
+                  disabled={firing === selectedOrder.id}
+                >
+                  {firing === selectedOrder.id ? "Firing..." : "🔥 Fire Order"}
+                </button>
+              )}
+            {isStaff && isLocked && selectedOrder && (
               <button
                 style={{ ...s.ghostActionBtn, width: "100%" }}
                 onClick={() => openChit(selectedOrder.id)}
@@ -895,6 +897,489 @@ function TableStatusView({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── ATTENDEE MANAGER ─────────────────────────────────────────────────────────
+
+const DIETARY_OPTIONS = [
+  "dairy_free",
+  "egg_free",
+  "fish_allergy",
+  "gluten_free",
+  "halal",
+  "kosher",
+  "nut_allergy",
+  "peanut_allergy",
+  "sesame_allergy",
+  "shellfish_allergy",
+  "soy_free",
+  "vegan",
+  "vegetarian",
+];
+
+function AttendeeManager({
+  reservation,
+  attendees,
+  members,
+  onUpdated,
+  isCancelled,
+}) {
+  const [editingId, setEditingId] = useState(null);
+  const [editDiet, setEditDiet] = useState([]);
+  const [showAddGuest, setShowAddGuest] = useState(false);
+  const [guestName, setGuestName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [removing, setRemoving] = useState(null);
+
+  const addedMemberIds = attendees
+    .filter((a) => a.member_id)
+    .map((a) => a.member_id);
+  const availableMembers = members.filter(
+    (m) => m.user_id === reservation.user_id && !addedMemberIds.includes(m.id),
+  );
+
+  const startEdit = (attendee) => {
+    setEditingId(attendee.id);
+    setEditDiet([...(attendee.dietary_restrictions || [])]);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditDiet([]);
+  };
+
+  const toggleDiet = (val) => {
+    setEditDiet((prev) =>
+      prev.includes(val) ? prev.filter((d) => d !== val) : [...prev, val],
+    );
+  };
+
+  const saveDiet = async (attendeeId) => {
+    setSaving(true);
+    try {
+      await api.patch(`/api/reservation-attendees/${attendeeId}`, {
+        dietary_restrictions: editDiet,
+      });
+      await onUpdated();
+      setEditingId(null);
+    } catch (err) {
+      toast.error(err?.detail || "Failed to update dietary restrictions");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const removeAttendee = async (attendeeId) => {
+    setRemoving(attendeeId);
+    try {
+      await api.delete(`/api/reservation-attendees/${attendeeId}`);
+      await onUpdated();
+    } catch (err) {
+      toast.error(err?.detail || "Failed to remove attendee");
+    } finally {
+      setRemoving(null);
+    }
+  };
+
+  const addMember = async (member) => {
+    setSaving(true);
+    try {
+      await api.post("/api/reservation-attendees", {
+        reservation_id: reservation.id,
+        member_id: member.id,
+        guest_name: null,
+        dietary_restrictions: member.dietary_restrictions || [],
+      });
+      await onUpdated();
+    } catch (err) {
+      toast.error(err?.detail || "Failed to add member");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const addGuest = async () => {
+    if (!guestName.trim()) return;
+    setSaving(true);
+    try {
+      await api.post("/api/reservation-attendees", {
+        reservation_id: reservation.id,
+        member_id: null,
+        guest_name: guestName.trim(),
+        dietary_restrictions: [],
+      });
+      await onUpdated();
+      setGuestName("");
+      setShowAddGuest(false);
+    } catch (err) {
+      toast.error(err?.detail || "Failed to add guest");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div>
+      <div style={s.sectionTitle}>Attendees</div>
+
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "10px",
+          marginBottom: "16px",
+        }}
+      >
+        {attendees.map((a) => {
+          const name = a.member?.name || a.guest_name || "Guest";
+          const isEditing = editingId === a.id;
+
+          return (
+            <div
+              key={a.id}
+              style={{
+                border: "1px solid var(--border-dim)",
+                borderRadius: "var(--radius-sm)",
+                padding: "12px 14px",
+                background: "var(--panel-2)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-start",
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: "14px" }}>
+                    {name}
+                  </div>
+                  <div className="muted" style={{ fontSize: "10px" }}>
+                    {a.member_id ? "household member" : "guest"}
+                  </div>
+                </div>
+                {!isCancelled && (
+                  <div style={{ display: "flex", gap: "6px" }}>
+                    {!isEditing && (
+                      <button
+                        className="ghost"
+                        style={{ fontSize: "11px" }}
+                        onClick={() => startEdit(a)}
+                      >
+                        Edit Diet
+                      </button>
+                    )}
+                    <button
+                      style={s.removeBtn}
+                      onClick={() => removeAttendee(a.id)}
+                      disabled={removing === a.id}
+                    >
+                      {removing === a.id ? "..." : "✕"}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Dietary tags — view mode */}
+              {!isEditing && a.dietary_restrictions?.length > 0 && (
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: "4px",
+                    marginTop: "8px",
+                  }}
+                >
+                  {a.dietary_restrictions.map((d) => (
+                    <span key={d} style={s.dietTag}>
+                      {d.replace(/_/g, " ")}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Dietary editor — edit mode */}
+              {isEditing && (
+                <div style={{ marginTop: "10px" }}>
+                  <div
+                    style={{
+                      fontSize: "10px",
+                      fontWeight: 900,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.06em",
+                      color: "var(--muted)",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    Dietary Restrictions
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "6px",
+                      marginBottom: "10px",
+                    }}
+                  >
+                    {DIETARY_OPTIONS.map((opt) => {
+                      const active = editDiet.includes(opt);
+                      return (
+                        <button
+                          key={opt}
+                          type="button"
+                          onClick={() => toggleDiet(opt)}
+                          style={{
+                            padding: "4px 10px",
+                            fontSize: "10px",
+                            fontWeight: 700,
+                            letterSpacing: "0.06em",
+                            textTransform: "uppercase",
+                            border: "1.5px solid var(--border-dim)",
+                            borderRadius: "2px",
+                            cursor: "pointer",
+                            boxShadow: "none",
+                            background: active ? "var(--accent)" : "white",
+                            color: active ? "white" : "var(--text)",
+                          }}
+                        >
+                          {opt.replace(/_/g, " ")}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <button
+                      className="primary"
+                      style={{ fontSize: "12px" }}
+                      onClick={() => saveDiet(a.id)}
+                      disabled={saving}
+                    >
+                      {saving ? "Saving..." : "Save"}
+                    </button>
+                    <button
+                      className="ghost"
+                      style={{ fontSize: "12px" }}
+                      onClick={cancelEdit}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Add controls */}
+      {!isCancelled && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          {/* Add household member */}
+          {availableMembers.length > 0 && (
+            <div>
+              <div
+                style={{
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  color: "var(--muted)",
+                  marginBottom: "8px",
+                }}
+              >
+                Add Household Member
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                {availableMembers.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => addMember(m)}
+                    disabled={saving}
+                    style={{
+                      padding: "8px 14px",
+                      fontSize: "12px",
+                      background: "white",
+                      border: "2px solid var(--border)",
+                      borderRadius: "var(--radius-sm)",
+                      cursor: "pointer",
+                      boxShadow: "2px 2px 0 var(--border)",
+                      textAlign: "left",
+                    }}
+                  >
+                    <div style={{ fontWeight: 700 }}>+ {m.name}</div>
+                    {m.relation && (
+                      <div style={{ fontSize: "10px", opacity: 0.6 }}>
+                        {m.relation}
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Add guest */}
+          {!showAddGuest ? (
+            <button
+              type="button"
+              className="ghost"
+              style={{ fontSize: "12px", alignSelf: "flex-start" }}
+              onClick={() => setShowAddGuest(true)}
+            >
+              + Add Guest
+            </button>
+          ) : (
+            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+              <input
+                type="text"
+                value={guestName}
+                onChange={(e) => setGuestName(e.target.value)}
+                placeholder="Guest name"
+                style={{ maxWidth: "240px" }}
+                onKeyDown={(e) => e.key === "Enter" && addGuest()}
+                autoFocus
+              />
+              <button
+                className="primary"
+                style={{ fontSize: "12px" }}
+                onClick={addGuest}
+                disabled={saving}
+              >
+                Add
+              </button>
+              <button
+                className="ghost"
+                style={{ fontSize: "12px" }}
+                onClick={() => {
+                  setShowAddGuest(false);
+                  setGuestName("");
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── ROOM PREFERENCE EDITOR ───────────────────────────────────────────────────
+
+const ALLOWED_ROOMS = [
+  "Breakfast Nook",
+  "Card Room",
+  "Croquet Court",
+  "Living Room",
+  "Pool",
+];
+
+function RoomPreferenceEditor({ reservation, diningRooms, onUpdated }) {
+  const [editing, setEditing] = useState(false);
+  const [roomId, setRoomId] = useState(
+    reservation.dining_room_id ? String(reservation.dining_room_id) : "",
+  );
+  const [saving, setSaving] = useState(false);
+
+  const activeRooms = diningRooms.filter(
+    (r) => r.is_active && ALLOWED_ROOMS.includes(r.name),
+  );
+
+  const currentRoom = diningRooms.find(
+    (r) => r.id === reservation.dining_room_id,
+  );
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await api.patch(`/api/reservations/${reservation.id}`, {
+        dining_room_id: roomId ? parseInt(roomId) : null,
+      });
+      await onUpdated();
+      setEditing(false);
+    } catch (err) {
+      toast.error(err?.detail || "Failed to update room");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!editing) {
+    return (
+      <div
+        style={{
+          marginTop: "12px",
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
+        }}
+      >
+        <span style={{ fontSize: "13px", color: "var(--muted)" }}>
+          Room preference:{" "}
+          <strong style={{ color: "var(--text)" }}>
+            {currentRoom?.name || "None selected"}
+          </strong>
+        </span>
+        <button
+          className="ghost"
+          style={{ fontSize: "11px" }}
+          onClick={() => setEditing(true)}
+        >
+          Edit
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        marginTop: "12px",
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        flexWrap: "wrap",
+      }}
+    >
+      <select
+        value={roomId}
+        onChange={(e) => setRoomId(e.target.value)}
+        style={{ fontSize: "13px" }}
+      >
+        <option value="">No preference</option>
+        {activeRooms.map((r) => (
+          <option key={r.id} value={r.id}>
+            {r.name}
+          </option>
+        ))}
+      </select>
+      <button
+        className="primary"
+        style={{ fontSize: "12px" }}
+        onClick={save}
+        disabled={saving}
+      >
+        {saving ? "Saving..." : "Save"}
+      </button>
+      <button
+        className="ghost"
+        style={{ fontSize: "12px" }}
+        onClick={() => {
+          setRoomId(
+            reservation.dining_room_id
+              ? String(reservation.dining_room_id)
+              : "",
+          );
+          setEditing(false);
+        }}
+      >
+        Cancel
+      </button>
     </div>
   );
 }
@@ -913,7 +1398,7 @@ function MessageComposer({ reservationId, onSent }) {
       setBody("");
       await onSent();
     } catch (err) {
-      toast.error(err?.detail || "Failed to send message");
+      toast.error(err.detail || "Failed to send message");
     } finally {
       setSending(false);
     }

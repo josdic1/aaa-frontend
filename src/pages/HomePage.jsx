@@ -1,4 +1,3 @@
-// src/pages/HomePage.jsx
 import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useData } from "../hooks/useData";
@@ -47,11 +46,10 @@ export function HomePage() {
   const filtered = useMemo(() => {
     return reservations
       .filter((r) => classify(r.date) === tab)
-      .sort(
-        (a, b) =>
-          tab === "past"
-            ? b.date.localeCompare(a.date) // past: newest first
-            : a.date.localeCompare(b.date), // today/future: soonest first
+      .sort((a, b) =>
+        tab === "past"
+          ? b.date.localeCompare(a.date)
+          : a.date.localeCompare(b.date),
       );
   }, [reservations, tab]);
 
@@ -60,7 +58,7 @@ export function HomePage() {
       {/* HEADER */}
       <div style={s.header}>
         <h1 style={{ fontSize: "28px" }}>My Reservations</h1>
-        <Link to="/reservations/new">
+        <Link to="/reservations/new" style={{ width: "auto" }}>
           <button className="primary">+ New Reservation</button>
         </Link>
       </div>
@@ -120,29 +118,40 @@ export function HomePage() {
             style={{ textDecoration: "none" }}
           >
             <div className="card" style={s.card}>
-              <div>
-                <div style={s.date}>{formatDate(r.date)}</div>
-                <div style={s.time}>
-                  {formatTime(r.start_time)}
-                  {r.end_time ? ` — ${formatTime(r.end_time)}` : ""}
-                </div>
-                {r.notes && (
-                  <p
-                    className="muted"
-                    style={{ marginTop: "4px", fontSize: "13px" }}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={s.cardTop}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={s.date}>{formatDate(r.date)}</div>
+                    <div style={s.time}>
+                      {formatTime(r.start_time)}
+                      {r.end_time ? ` — ${formatTime(r.end_time)}` : ""}
+                    </div>
+                    {r.notes && (
+                      <p
+                        className="muted"
+                        style={{
+                          marginTop: "8px",
+                          fontSize: "13px",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {r.notes}
+                      </p>
+                    )}
+                  </div>
+                  <span
+                    style={{
+                      ...s.badge,
+                      color: STATUS_COLOR[r.status] || "var(--muted)",
+                      flexShrink: 0,
+                    }}
                   >
-                    {r.notes}
-                  </p>
-                )}
+                    {r.status}
+                  </span>
+                </div>
               </div>
-              <span
-                style={{
-                  ...s.badge,
-                  color: STATUS_COLOR[r.status] || "var(--muted)",
-                }}
-              >
-                {r.status}
-              </span>
             </div>
           </Link>
         ))}
@@ -156,42 +165,46 @@ const s = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
+    flexWrap: "wrap",
+    gap: "16px",
     marginBottom: "24px",
   },
   tabs: {
     display: "flex",
-    borderBottom: "2px solid transparent",
+    overflowX: "auto",
+    WebkitOverflowScrolling: "touch",
+    borderBottom: "2px solid var(--border-dim)",
     marginBottom: "24px",
-    gap: "0",
+    gap: "4px",
+    scrollbarWidth: "none" /* Firefox */,
   },
   tab: {
     display: "flex",
     alignItems: "center",
     gap: "6px",
-    padding: "10px 20px",
-    fontSize: "12px",
+    padding: "12px 16px",
+    fontSize: "11px",
     fontWeight: 700,
     textTransform: "uppercase",
     letterSpacing: "0.08em",
     background: "none",
     border: "none",
-    borderBottomWidth: "2px",
-    borderBottomStyle: "solid",
-    borderBottomColor: "transparent",
+    borderBottom: "3px solid transparent",
     boxShadow: "none",
     cursor: "pointer",
     color: "var(--muted)",
     marginBottom: "-2px",
     transition: "color 0.1s",
+    whiteSpace: "nowrap",
   },
   tabActive: {
     color: "var(--text)",
-    borderBottomColor: "var(--accent)",
+    borderBottom: "3px solid var(--accent)",
   },
   tabCount: {
     fontSize: "10px",
     fontWeight: 900,
-    background: "var(--border)",
+    background: "var(--border-dim)",
     color: "var(--muted)",
     borderRadius: "10px",
     padding: "1px 6px",
@@ -205,19 +218,25 @@ const s = {
   list: {
     display: "flex",
     flexDirection: "column",
-    gap: "12px",
+    gap: "16px",
   },
   card: {
     display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
     cursor: "pointer",
+    padding: "20px",
+  },
+  cardTop: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: "12px",
   },
   date: {
     fontFamily: "Playfair Display, serif",
     fontSize: "18px",
     fontWeight: 900,
     marginBottom: "4px",
+    lineHeight: "1.2",
   },
   time: { fontSize: "13px", color: "var(--muted)", fontWeight: 500 },
   badge: {
@@ -225,10 +244,8 @@ const s = {
     fontWeight: 900,
     letterSpacing: "0.08em",
     textTransform: "uppercase",
-    padding: "3px 10px",
-    borderWidth: "1.5px",
-    borderStyle: "solid",
-    borderColor: "currentColor",
+    padding: "3px 8px",
+    border: "1.5px solid currentColor",
     borderRadius: "2px",
     whiteSpace: "nowrap",
   },

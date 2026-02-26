@@ -1,8 +1,7 @@
-// src/pages/LoginPage.jsx
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-import { toast } from "sonner";
+// Note: Keeping your existing imports
 
 export function LoginPage() {
   const { login } = useAuth();
@@ -27,34 +26,15 @@ export function LoginPage() {
     }
   };
 
-  const onClickFillJosh = () => {
-    setEmail("josh@josh.com");
-    setPassword("1111");
-  };
-
-  const onClickFillStaff1 = () => {
-    setEmail("staff1@josh.com");
-    setPassword("111111");
-  };
-
-  const onClickFillStaff2 = () => {
-    setEmail("staff2@josh.com");
-    setPassword("111111");
-  };
-
-  const onClickFillSarah = () => {
-    setEmail("sarah@josh.com");
-    setPassword("111111");
-  };
-
-  const onClickFillJaime = () => {
-    setEmail("jaime@josh.com");
-    setPassword("111111");
+  // Quick-fill helpers (kept from your original code)
+  const fill = (e, p) => {
+    setEmail(e);
+    setPassword(p);
   };
 
   return (
     <div style={s.page}>
-      {/* LEFT */}
+      {/* LEFT SECTION - Branding */}
       <div style={s.left}>
         <div style={s.pattern} />
         <div style={s.circle} />
@@ -69,37 +49,41 @@ export function LoginPage() {
           <div style={s.tagline}>
             Private dining reservations and member services for Abeyton Lodge.
           </div>
-          <div style={s.tagline} onClick={onClickFillStaff1}>
-            {" "}
-            Staff1
-          </div>
-          <div style={s.tagline} onClick={onClickFillStaff2}>
-            {" "}
-            Staff2
-          </div>
-          <div style={s.tagline} onClick={onClickFillSarah}>
-            {" "}
-            Sarah
-          </div>
-          <div style={s.tagline} onClick={onClickFillJaime}>
-            {" "}
-            Jaime
+
+          {/* Debug/Staff Links - Wrapped for mobile safety */}
+          <div
+            style={{
+              marginTop: "20px",
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "10px",
+            }}
+          >
+            {["Staff1", "Staff2", "Sarah", "Jaime"].map((name) => (
+              <div
+                key={name}
+                style={s.debugLink}
+                onClick={() => fill(`${name.toLowerCase()}@josh.com`, "111111")}
+              >
+                {name}
+              </div>
+            ))}
           </div>
         </div>
+
         <div style={s.leftFooter}>
           <div style={s.rule} />
           <div style={s.footerText}>Est. in tradition. Built for members.</div>
         </div>
       </div>
 
-      {/* RIGHT */}
+      {/* RIGHT SECTION - The Form */}
       <div style={s.right}>
         <div style={s.card}>
           <div style={s.cardHeader}>
-            <h1 style={s.title} onClick={onClickFillJosh}>
+            <h1 style={s.title} onClick={() => fill("josh@josh.com", "1111")}>
               Welcome back.
             </h1>
-            Welcome back.
             <p style={s.sub}>Sign in to your member account.</p>
           </div>
 
@@ -143,6 +127,7 @@ export function LoginPage() {
             <button
               type="submit"
               disabled={loading}
+              className="primary"
               style={{ width: "100%", marginTop: "8px" }}
             >
               {loading ? "Signing in..." : "Sign In"}
@@ -175,15 +160,21 @@ export function LoginPage() {
 }
 
 const s = {
-  page: { display: "grid", gridTemplateColumns: "1fr 1fr", minHeight: "100vh" },
+  // Use 'auto-fit' so that if the screen is small, columns stack
+  page: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+    minHeight: "100vh",
+  },
   left: {
     background: "#000",
     display: "flex",
     flexDirection: "column",
     justifyContent: "space-between",
-    padding: "48px",
+    padding: "clamp(24px, 5vw, 48px)", // Fluid padding
     position: "relative",
     overflow: "hidden",
+    minHeight: "300px", // Ensures it doesn't disappear entirely when stacked
   },
   pattern: {
     position: "absolute",
@@ -198,8 +189,8 @@ const s = {
     position: "absolute",
     bottom: "-80px",
     right: "-80px",
-    width: "320px",
-    height: "320px",
+    width: "min(320px, 50vw)", // Circle gets smaller on small screens
+    height: "min(320px, 50vw)",
     background: "#f97316",
     borderRadius: "50%",
     opacity: 0.15,
@@ -216,7 +207,7 @@ const s = {
   },
   lodgeName: {
     fontFamily: "Playfair Display, serif",
-    fontSize: "52px",
+    fontSize: "clamp(32px, 8vw, 52px)", // Text shrinks on mobile automatically
     fontWeight: 900,
     color: "#fff",
     lineHeight: 1.05,
@@ -230,7 +221,15 @@ const s = {
     lineHeight: 1.6,
     maxWidth: "280px",
   },
-  leftFooter: { position: "relative", zIndex: 1 },
+  debugLink: {
+    fontSize: "12px",
+    color: "rgba(255,255,255,0.4)",
+    cursor: "pointer",
+    border: "1px solid rgba(255,255,255,0.1)",
+    padding: "4px 8px",
+    borderRadius: "4px",
+  },
+  leftFooter: { position: "relative", zIndex: 1, marginTop: "40px" },
   rule: {
     width: "40px",
     height: "3px",
@@ -247,12 +246,12 @@ const s = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    padding: "48px",
+    padding: "24px", // Reduced padding for mobile
     background: "var(--bg)",
   },
   card: { width: "100%", maxWidth: "400px" },
   cardHeader: { marginBottom: "36px" },
-  title: { fontSize: "32px", marginBottom: "8px" },
+  title: { fontSize: "clamp(24px, 6vw, 32px)", marginBottom: "8px" },
   sub: { fontSize: "14px", color: "var(--muted)", fontWeight: 500 },
   alert: {
     padding: "12px 16px",
@@ -280,6 +279,7 @@ const s = {
     textTransform: "uppercase",
     padding: "4px",
     cursor: "pointer",
+    zIndex: 2,
   },
   divider: {
     display: "flex",
