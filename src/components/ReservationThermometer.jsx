@@ -4,10 +4,10 @@
 //   <ReservationThermometer reservation={r} />
 //
 // Usage — admin daily row (has party_size, table, status):
-//   <ReservationThermometer reservation={res} adminData={res} />
+//   <ReservationThermometer reservation={res} adminData={res} seatAssignment={assignment} />
 //
 // Usage — detail page (has attendees, orders, order_items):
-//   <ReservationThermometer reservation={reservation} detailData={data} />
+//   <ReservationThermometer reservation={reservation} detailData={data} seatAssignment={seatAssignment} />
 
 const STAGES = [
   { key: "created", label: "Created" },
@@ -19,7 +19,7 @@ const STAGES = [
 ];
 
 // Returns how far along each stage is: "done" | "partial" | "pending" | "blocked"
-function computeStages(reservation, adminData, detailData) {
+function computeStages(reservation, adminData, detailData, seatAssignment) {
   const status = reservation?.status;
   const isCancelled = status === "cancelled";
 
@@ -123,19 +123,28 @@ function computeStages(reservation, adminData, detailData) {
   if (isCancelled) {
     seated = "blocked";
   } else {
+    // Explicit prop (Admin list passes assignment object; detail page passes seat_assignment)
+    const hasExplicitSeat =
+      Boolean(seatAssignment) ||
+      (seatAssignment?.table_id ?? 0) > 0 ||
+      (seatAssignment?.table?.id ?? 0) > 0;
+
+    // Common list/admin shapes
     const hasAdminSeat =
       Boolean(adminData?.table) ||
       (adminData?.table_id ?? 0) > 0 ||
       Boolean(adminData?.seat_assignment) ||
       (adminData?.seat_assignment_id ?? 0) > 0;
 
+    // Common detail/bootstrap shapes
     const hasDetailSeat =
       Boolean(detailData?.seat_assignment) ||
       Boolean(detailData?.reservation?.seat_assignment) ||
       (Array.isArray(detailData?.seat_assignments) &&
-        detailData.seat_assignments.length > 0);
+        detailData.seat_assignments.length > 0) ||
+      (detailData?.reservation?.table_id ?? 0) > 0;
 
-    if (hasAdminSeat || hasDetailSeat) seated = "done";
+    if (hasExplicitSeat || hasAdminSeat || hasDetailSeat) seated = "done";
   }
 
   // ── FIRED ─────────────────────────────────────────────────
@@ -189,7 +198,7 @@ export function ReservationThermometer({
   reservation,
   adminData = null,
   detailData = null,
-  seatAssignment = null, // ✅ explicit source of truth
+  seatAssignment = null, // explicit source of truth when caller has it
   size = "default", // "compact" | "default"
 }) {
   const stageState = computeStages(
