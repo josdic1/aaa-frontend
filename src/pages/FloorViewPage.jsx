@@ -1375,7 +1375,7 @@ export function FloorViewPage() {
                           style={s.ghostBtn}
                           onClick={() =>
                             window.open(
-                              `${API_BASE}/api/orders/${selectedOrder.id}/chit`,
+                              `${API_BASE}/api/orders/${selectedOrder.id}/chit?token=${localStorage.getItem("token")}`,
                               "_blank",
                             )
                           }
