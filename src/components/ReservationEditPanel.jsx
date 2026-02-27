@@ -2,15 +2,19 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { api } from "../utils/api";
+import { useData } from "../hooks/useData";
 import { DIETARY_OPTIONS } from "../constants/dietary";
 
 export function ReservationEditPanel({ bootstrap, onSaved }) {
   const res = bootstrap.reservation;
+  const { diningRooms } = useData();
+
   const [form, setForm] = useState({
     date: res.date || "",
     start_time: res.start_time || "",
     status: res.status || "draft",
     notes: res.notes || "",
+    dining_room_id: res.dining_room_id ? String(res.dining_room_id) : "",
   });
   const [saving, setSaving] = useState(false);
   const [editingAttendee, setEditingAttendee] = useState(null);
@@ -18,20 +22,32 @@ export function ReservationEditPanel({ bootstrap, onSaved }) {
   const saveReservation = async () => {
     setSaving(true);
     try {
-      const normalized = Object.fromEntries(
-        Object.entries(form).map(([k, v]) => [k, v === "" ? null : v]),
-      );
       const original = {
         date: res.date ?? null,
         start_time: res.start_time ?? null,
         status: res.status ?? null,
         notes: res.notes ?? null,
+        dining_room_id: res.dining_room_id ? String(res.dining_room_id) : "",
       };
+
       const payload = {};
-      for (const [k, v] of Object.entries(normalized)) {
+      for (const [k, v] of Object.entries(form)) {
         if (k === "date") continue;
-        if (v !== original[k]) payload[k] = v;
+        const normalized = v === "" ? null : v;
+        const origNormalized = original[k] === "" ? null : original[k];
+        if (String(normalized) !== String(origNormalized)) {
+          payload[k] =
+            k === "dining_room_id" && normalized
+              ? parseInt(normalized)
+              : normalized;
+        }
       }
+
+      if (Object.keys(payload).length === 0) {
+        toast.info("No changes to save");
+        return;
+      }
+
       await api.patch(`/api/admin/reservations/${res.id}`, payload);
       toast.success("Saved");
       onSaved();
@@ -75,10 +91,16 @@ export function ReservationEditPanel({ bootstrap, onSaved }) {
     }
   };
 
+  const activeRooms = (diningRooms || []).filter((r) => r.is_active);
+  const messages = (bootstrap.messages || [])
+    .slice()
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+      {/* RESERVATION FIELDS */}
       <div>
-        <div style={s.panelLabel}>Reservation #{res.id}</div>
+        <div style={s.sectionLabel}>Reservation #{res.id}</div>
         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           <div>
             <div style={s.fieldLabel}>Date</div>
@@ -115,6 +137,23 @@ export function ReservationEditPanel({ bootstrap, onSaved }) {
             </select>
           </div>
           <div>
+            <div style={s.fieldLabel}>Dining Room Preference</div>
+            <select
+              style={s.fieldInput}
+              value={form.dining_room_id}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, dining_room_id: e.target.value }))
+              }
+            >
+              <option value="">No preference</option>
+              {activeRooms.map((room) => (
+                <option key={room.id} value={String(room.id)}>
+                  {room.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
             <div style={s.fieldLabel}>Notes</div>
             <textarea
               style={{ ...s.fieldInput, resize: "vertical" }}
@@ -131,10 +170,11 @@ export function ReservationEditPanel({ bootstrap, onSaved }) {
         </div>
       </div>
 
+      {/* ATTENDEES */}
       <div
-        style={{ borderTop: "1px solid var(--border-dim)", paddingTop: "14px" }}
+        style={{ borderTop: "1px solid var(--border-dim)", paddingTop: "16px" }}
       >
-        <div style={s.panelLabel}>Attendees</div>
+        <div style={s.sectionLabel}>Attendees</div>
         {(bootstrap.attendees || []).length === 0 && (
           <div style={{ fontSize: "12px", color: "var(--muted)" }}>
             No attendees yet.
@@ -205,6 +245,42 @@ export function ReservationEditPanel({ bootstrap, onSaved }) {
             )}
           </div>
         ))}
+      </div>
+
+      {/* MESSAGES */}
+      <div
+        style={{ borderTop: "1px solid var(--border-dim)", paddingTop: "16px" }}
+      >
+        <div style={s.sectionLabel}>
+          Messages
+          {messages.length > 0 && <span style={s.pill}>{messages.length}</span>}
+        </div>
+        {messages.length === 0 ? (
+          <div style={{ fontSize: "12px", color: "var(--muted)" }}>
+            No messages.
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {messages.map((msg) => (
+              <div key={msg.id} style={s.messageBubble}>
+                <div style={s.messageMeta}>
+                  <span style={s.messageAuthor}>
+                    User #{msg.sender_user_id}
+                  </span>
+                  <span style={s.messageTime}>
+                    {new Date(msg.created_at).toLocaleString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                </div>
+                <div style={s.messageBody}>{msg.body}</div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -332,13 +408,24 @@ export function ReservationDetailModal({ reservationId, onClose, onSaved }) {
 }
 
 const s = {
-  panelLabel: {
+  sectionLabel: {
     fontSize: "10px",
     fontWeight: 900,
     textTransform: "uppercase",
     letterSpacing: "0.08em",
     color: "var(--muted)",
-    marginBottom: "6px",
+    marginBottom: "8px",
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+  },
+  pill: {
+    fontSize: "9px",
+    fontWeight: 700,
+    background: "var(--border-dim)",
+    color: "var(--muted)",
+    borderRadius: "10px",
+    padding: "1px 6px",
   },
   fieldLabel: {
     fontSize: "10px",
@@ -391,6 +478,34 @@ const s = {
     cursor: "pointer",
     color: "#c0392b",
     boxShadow: "none",
+  },
+  messageBubble: {
+    padding: "8px 10px",
+    background: "var(--panel-2)",
+    border: "1px solid var(--border-dim)",
+    borderRadius: "var(--radius-sm)",
+  },
+  messageMeta: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "4px",
+  },
+  messageAuthor: {
+    fontSize: "10px",
+    fontWeight: 900,
+    textTransform: "uppercase",
+    letterSpacing: "0.06em",
+    color: "var(--muted)",
+  },
+  messageTime: {
+    fontSize: "10px",
+    color: "var(--muted)",
+  },
+  messageBody: {
+    fontSize: "12px",
+    color: "var(--text)",
+    lineHeight: 1.5,
   },
 };
 
