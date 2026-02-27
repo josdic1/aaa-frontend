@@ -14,6 +14,7 @@ import { ReservationDetailPage } from "./pages/ReservationDetailPage";
 import { FloorViewPage } from "./pages/FloorViewPage";
 import { AdminOverlord } from "./pages/AdminOverlord";
 import { useAuth } from "./hooks/useAuth";
+import { KnownIssues } from "./pages/KnownIssues";
 
 function RootIndex() {
   const { user } = useAuth();
@@ -36,6 +37,7 @@ export const routes = [
       { path: "login", element: <LoginPage /> },
       { path: "signup", element: <SignupPage /> },
       { path: "menu", element: <MenuPage /> },
+      { path: "issues", element: <KnownIssues /> },
 
       // IMPORTANT: index is NOT wrapped by ProtectedRoute
       // RootIndex alone decides where "/" should go.

@@ -329,57 +329,49 @@ export function AdminPage() {
         </div>
       )}
 
-      
-
       {tab === "orders" && (
-        <div key={order.id} className="card" style={s.orderCard}>
-          <div style={s.orderHeader}>
-            <div>
-              <div style={{ fontWeight: 900, fontSize: "15px" }}>
-                Order #{order.id}
-              </div>
-            </div>
-            <button
-              className="primary"
-              style={{ fontSize: "12px" }}
-              onClick={() => fulfillOrder(order.id)}
-            >
-              ✓ Fulfill
-            </button>
-          </div>
-
-          {/* NEW: Using formatPrice here logic */}
-          {order.items?.length > 0 && (
-            <div
-              style={{
-                borderTop: "1px solid var(--border-dim)",
-                marginTop: "12px",
-                paddingTop: "8px",
-              }}
-            >
-              {order.items.map((item) => (
-                <div
-                  key={item.id}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    fontSize: "13px",
-                    padding: "4px 0",
-                  }}
-                >
-                  <span>
-                    {item.name_snapshot}{" "}
-                    {item.quantity > 1 && `x${item.quantity}`}
-                  </span>
-                  <span style={{ fontWeight: 700 }}>
-                    {formatPrice(
-                      (item.price_cents_snapshot || 0) * item.quantity,
-                    )}
-                  </span>
-                </div>
-              ))}
+        <div>
+          {firedOrders.length === 0 && (
+            <div className="card">
+              <p className="muted">No fired orders found for this date.</p>
             </div>
           )}
+          {firedOrders.map((order) => (
+            <div key={order.id} className="card" style={s.orderCard}>
+              <div style={s.orderHeader}>
+                <div>
+                  <div style={{ fontWeight: 900, fontSize: "15px" }}>
+                    Order #{order.id}
+                  </div>
+                </div>
+                <button
+                  className="primary"
+                  style={{ fontSize: "12px" }}
+                  onClick={() => fulfillOrder(order.id)}
+                >
+                  ✓ Fulfill
+                </button>
+              </div>
+
+              {order.items?.length > 0 && (
+                <div style={s.itemList}>
+                  {order.items.map((item) => (
+                    <div key={item.id} style={s.itemRow}>
+                      <span>
+                        {item.name_snapshot}{" "}
+                        {item.quantity > 1 && `x${item.quantity}`}
+                      </span>
+                      <span style={{ fontWeight: 700 }}>
+                        {formatPrice(
+                          (item.price_cents_snapshot || 0) * item.quantity,
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
 

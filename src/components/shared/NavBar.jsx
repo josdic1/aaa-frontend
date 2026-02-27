@@ -83,6 +83,9 @@ export function NavBar() {
           >
             {user.role}
           </span>
+             <Link to="/issues" style={active("/issues")}>
+          Issues
+        </Link>
           <button style={s.logoutBtn} onClick={logout}>
             ↪ Sign Out
           </button>
@@ -120,9 +123,14 @@ export function NavBar() {
           </Link>
         )}
         {isAdmin && (
-          <Link to="/admin" style={active("/admin")}>
-            Admin
-          </Link>
+          <>
+            <Link to="/admin" style={active("/admin")}>
+              Admin
+            </Link>
+            <Link to="/overlord" style={active("/overlord")}>
+              Overlord
+            </Link>
+          </>
         )}
       </nav>
     </>
