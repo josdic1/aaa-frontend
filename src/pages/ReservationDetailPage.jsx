@@ -137,7 +137,10 @@ export function ReservationDetailPage() {
     const token = localStorage.getItem("token");
     // Appending the token directly to the URL so the new tab is authenticated
     const url = `${API_BASE}/api/orders/${orderId}/chit?token=${token}`;
-    window.open(url, "_blank");
+    window.open(
+      `${API_BASE}/api/orders/${selectedOrder.id}/chit?token=${localStorage.getItem("token")}`,
+      "_blank",
+    );
   };
 
   if (loading)
