@@ -662,6 +662,28 @@ export function FloorViewPage() {
                         {r.notes}
                       </div>
                     ) : null}
+                    {r.primary_member && (
+                      <div
+                        style={{
+                          marginTop: "2px",
+                          fontSize: "11px",
+                          color: "var(--muted)",
+                        }}
+                      >
+                        {r.primary_member}
+                      </div>
+                    )}
+                    {r.dining_room_name && (
+                      <div
+                        style={{
+                          marginTop: "2px",
+                          fontSize: "11px",
+                          color: "var(--muted)",
+                        }}
+                      >
+                        {r.dining_room_name}
+                      </div>
+                    )}
                   </div>
                 );
               })}
