@@ -1166,6 +1166,7 @@ function AttendeeManager({
                     onClick={() => addMember(m)}
                     disabled={saving}
                     style={{
+                      color: "#2b2b2b",
                       padding: "8px 14px",
                       background: "white",
                       border: "2px solid var(--border)",
