@@ -18,6 +18,9 @@ export function KnownIssues() {
         <li> 6. Create static utils/js for menu items</li>
         <li> 7. Create static utils/js for rooms </li>
         <li> 8. Create static utils/js for room/tables? </li>
+        <li> 9. Staff and Admin don't need MEMBERS page</li>
+        <li> 10. Staff and Admin don't need RESERVATIONS page</li>
+        <li> 11. Add NEW RESERVATION button to MEMBERS FORM/PAGE</li>
       </ol>
     </>
   );
