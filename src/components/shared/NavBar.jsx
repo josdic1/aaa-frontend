@@ -71,6 +71,9 @@ export function NavBar() {
                 <Link to="/overlord" style={active("/overlord")}>
                   Overlord
                 </Link>
+                <Link to="/calendar" style={active("/calendar")}>
+                  Calendar
+                </Link>
               </>
             )}
           </div>
@@ -83,9 +86,9 @@ export function NavBar() {
           >
             {user.role}
           </span>
-             <Link to="/issues" style={active("/issues")}>
-          Issues
-        </Link>
+          <Link to="/issues" style={active("/issues")}>
+            Issues
+          </Link>
           <button style={s.logoutBtn} onClick={logout}>
             ↪ Sign Out
           </button>

@@ -15,6 +15,7 @@ import { FloorViewPage } from "./pages/FloorViewPage";
 import { AdminOverlord } from "./pages/AdminOverlord";
 import { useAuth } from "./hooks/useAuth";
 import { KnownIssues } from "./pages/KnownIssues";
+import { CalendarPage } from "./pages/CalendarPage";
 
 function RootIndex() {
   const { user } = useAuth();
@@ -59,6 +60,7 @@ export const routes = [
           { path: "admin", element: <AdminPage /> },
           { path: "floor", element: <FloorViewPage /> },
           { path: "overlord", element: <AdminOverlord /> },
+          { path: "calendar", element: <CalendarPage /> },
         ],
       },
     ],
