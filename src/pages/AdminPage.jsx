@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { useData } from "../hooks/useData";
 import { api } from "../utils/api";
 import { ReservationThermometer } from "../components/ReservationThermometer";
+import { ReservationDetailModal } from "../components/ReservationEditPanel";
 import { extractError } from "../utils/errors";
 import { formatPrice, formatTime } from "../utils/format";
 
@@ -22,7 +23,7 @@ function sanitizeReservationPatch(patch) {
 
 export function AdminPage() {
   const { diningRooms, tables } = useData();
-
+  const [detailRes, setDetailRes] = useState(null);
   const [tab, setTab] = useState("reservations");
   const [reservations, setReservations] = useState([]);
   const [assignments, setAssignments] = useState([]);
@@ -322,6 +323,13 @@ export function AdminPage() {
                   >
                     Cancel
                   </button>
+                  <button
+                    className="ghost"
+                    style={{ fontSize: "12px", fontWeight: 700 }}
+                    onClick={() => setDetailRes(res.reservation_id)}
+                  >
+                    Details
+                  </button>
                 </div>
               </div>
             );
@@ -437,6 +445,13 @@ export function AdminPage() {
           </div>
         </div>
       )}
+      {detailRes && (
+  <ReservationDetailModal
+    reservationId={detailRes}
+    onClose={() => setDetailRes(null)}
+    onSaved={load}
+  />
+)}
     </div>
   );
 }

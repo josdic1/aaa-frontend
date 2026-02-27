@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { api } from "../utils/api";
 import { toast } from "sonner";
-import { DIETARY_OPTIONS } from "../constants/dietary";
+import {
+  ReservationEditPanel,
+  AttendeeEditInline,
+} from "../components/ReservationEditPanel";
 import { formatPrice } from "../utils/format";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8080";
@@ -66,14 +69,8 @@ export function FloorViewPage() {
   const [menuItems, setMenuItems] = useState([]);
   const [firing, setFiring] = useState(null);
   const [panelTab, setPanelTab] = useState("orders");
-
-  // Seat mode (pick unseated reservation -> click available table)
   const [seatingReservation, setSeatingReservation] = useState(null);
-
-  // Reseat mode
   const [reseating, setReseating] = useState(null);
-
-  // Order ensuring state
   const [ensuring, setEnsuring] = useState(false);
 
   const loadFloor = async () => {
@@ -139,29 +136,23 @@ export function FloorViewPage() {
     return "ordering";
   };
 
-  // Redundant local formatPrice removed
   const getName = (att) => att?.member?.name || att?.guest_name || "Guest";
 
   const selectedBs = selectedTable ? getBootstrap(selectedTable.id) : null;
-
   const selectedAttendee = selectedBs?.attendees?.find(
     (a) => a.id === selectedAttendeeId,
   );
-
   const selectedOrder = selectedAttendee
     ? selectedBs?.orders?.find((o) => o.attendee_id === selectedAttendee.id)
     : null;
-
   const selectedItems = selectedOrder
     ? (selectedBs?.order_items || []).filter(
         (i) => i.order_id === selectedOrder.id,
       )
     : [];
-
   const isLocked =
     selectedOrder?.status === "fired" || selectedOrder?.status === "fulfilled";
 
-  // ---- NEW: Ensure order exists for an attendee ----
   const ensureOrderForAttendee = async (attendeeId) => {
     if (!attendeeId) return null;
     setEnsuring(true);
@@ -213,7 +204,6 @@ export function FloorViewPage() {
     }
   };
 
-  // ---- NEW: Update item (quantity/status) ----
   const patchItem = async (itemId, patch) => {
     try {
       await api.patch(`/api/order-items/${itemId}`, patch);
@@ -227,18 +217,14 @@ export function FloorViewPage() {
     }
   };
 
-  // ---- UPDATED: Add item will ensure an order exists first ----
   const addItem = async (menuItemId) => {
     if (!selectedAttendee) return;
-
     let orderId = selectedOrder?.id;
-
     if (!orderId) {
       const ensured = await ensureOrderForAttendee(selectedAttendee.id);
       if (!ensured?.id) return;
       orderId = ensured.id;
     }
-
     try {
       await api.post(`/api/order-items/by-order/${orderId}`, {
         menu_item_id: menuItemId,
@@ -275,21 +261,18 @@ export function FloorViewPage() {
 
   const seatReservationToTable = async (reservationId, table) => {
     const partySize = seatingReservation?.party_size ?? null;
-
     if (partySize && table?.seat_count && partySize > table.seat_count) {
       toast.error(
         `Party size (${partySize}) exceeds ${table.name} (${table.seat_count} seats)`,
       );
       return;
     }
-
     try {
       await api.post("/api/seat-assignments", {
         reservation_id: reservationId,
         table_id: table.id,
         notes: "Seated from Floor View",
       });
-
       toast.success(`Seated #${reservationId} at ${table.name}`);
       setSeatingReservation(null);
       setSelectedTable(null);
@@ -306,9 +289,7 @@ export function FloorViewPage() {
 
   const reseatReservationToTable = async (targetTable) => {
     if (!reseating) return;
-
     const { reservation_id, party_size, assignment_id } = reseating;
-
     if (
       party_size &&
       targetTable?.seat_count &&
@@ -319,12 +300,10 @@ export function FloorViewPage() {
       );
       return;
     }
-
     if (!isTableAvailable(targetTable.id)) {
       toast.error("That table is not available");
       return;
     }
-
     try {
       if (assignment_id != null) {
         await api.patch(`/api/seat-assignments/${assignment_id}`, {
@@ -334,7 +313,6 @@ export function FloorViewPage() {
       } else {
         throw new Error("Missing assignment_id");
       }
-
       toast.success(`Moved #${reservation_id} to ${targetTable.name}`);
       setReseating(null);
       setSelectedTable(null);
@@ -352,7 +330,6 @@ export function FloorViewPage() {
           table_id: targetTable.id,
           notes: "Moved from Floor View (recreate fallback)",
         });
-
         toast.success(`Moved #${reservation_id} to ${targetTable.name}`);
         setReseating(null);
         setSelectedTable(null);
@@ -373,10 +350,7 @@ export function FloorViewPage() {
     if (seatingReservation) {
       return {
         kind: "seat",
-        title: `Seating mode: #${seatingReservation.reservation_id} · ${seatingReservation.start_time?.slice(
-          0,
-          5,
-        )} · party ${seatingReservation.party_size}`,
+        title: `Seating mode: #${seatingReservation.reservation_id} · ${seatingReservation.start_time?.slice(0, 5)} · party ${seatingReservation.party_size}`,
         sub: "Click an Available table to seat.",
         onCancel: () => setSeatingReservation(null),
       };
@@ -575,7 +549,6 @@ export function FloorViewPage() {
               {unseatedReservations.map((r) => {
                 const isPicked =
                   seatingReservation?.reservation_id === r.reservation_id;
-
                 return (
                   <div
                     key={r.reservation_id}
@@ -607,7 +580,6 @@ export function FloorViewPage() {
                         #{r.reservation_id} · {r.start_time?.slice(0, 5)} ·
                         party {r.party_size}
                       </div>
-
                       <div
                         style={{
                           display: "flex",
@@ -625,7 +597,6 @@ export function FloorViewPage() {
                         >
                           {r.status}
                         </div>
-
                         {isAdmin && (
                           <button
                             type="button"
@@ -650,7 +621,6 @@ export function FloorViewPage() {
                         )}
                       </div>
                     </div>
-
                     {r.notes ? (
                       <div
                         style={{
@@ -694,7 +664,6 @@ export function FloorViewPage() {
         {Object.values(tablesByRoom).map(({ room, tables: rt }) => {
           if (rt.length === 0) return null;
           const cfg = ROOM_CONFIG[room.name] || { cols: 3, accent: "#444" };
-
           return (
             <div key={room.id} style={s.roomBlock}>
               <div style={s.roomLabel}>
@@ -717,7 +686,6 @@ export function FloorViewPage() {
                   {rt.length} table{rt.length !== 1 ? "s" : ""}
                 </span>
               </div>
-
               <div
                 style={{
                   ...s.tableGrid,
@@ -731,7 +699,6 @@ export function FloorViewPage() {
                   const assignment = getAssignment(table.id);
                   const failed = assignment && !bs && !loading;
                   const isSelected = selectedTable?.id === table.id;
-
                   const available = isTableAvailable(table.id);
 
                   return (
@@ -749,7 +716,6 @@ export function FloorViewPage() {
                           );
                           return;
                         }
-
                         if (reseating) {
                           if (!available) {
                             toast.error("That table is not available");
@@ -758,7 +724,6 @@ export function FloorViewPage() {
                           reseatReservationToTable(table);
                           return;
                         }
-
                         setSelectedTable(isSelected ? null : table);
                         setSelectedAttendeeId(null);
                         setPanelTab("orders");
@@ -798,7 +763,6 @@ export function FloorViewPage() {
                       >
                         {table.name}
                       </div>
-
                       <div
                         style={{
                           fontSize: "10px",
@@ -809,7 +773,6 @@ export function FloorViewPage() {
                       >
                         {table.seat_count} seats
                       </div>
-
                       {failed ? (
                         <div
                           style={{
@@ -841,7 +804,6 @@ export function FloorViewPage() {
                           >
                             {formatPrice(bs.reservation_total)} est.
                           </div>
-
                           <div
                             style={{
                               display: "flex",
@@ -930,21 +892,17 @@ export function FloorViewPage() {
                 const a = getAssignment(selectedTable.id);
                 const bs = selectedBs;
                 if (!a || !bs) return null;
-
                 const isThisReseating =
                   reseating?.reservation_id === a.reservation_id;
-
                 return (
                   <button
                     type="button"
                     onClick={() => {
                       setSeatingReservation(null);
-
                       if (isThisReseating) {
                         setReseating(null);
                         return;
                       }
-
                       setReseating({
                         reservation_id: a.reservation_id,
                         party_size: bs.party_size,
@@ -952,7 +910,6 @@ export function FloorViewPage() {
                         assignment_id: a.id ?? a.assignment_id ?? null,
                         start_time: bs.reservation?.start_time ?? null,
                       });
-
                       toast.message(
                         "Move mode: click an available table to move.",
                       );
@@ -1082,7 +1039,6 @@ export function FloorViewPage() {
                             : items.length > 0
                               ? "#d4a017"
                               : "#e53935";
-
                       return (
                         <button
                           key={att.id}
@@ -1090,8 +1046,6 @@ export function FloorViewPage() {
                             const next = isThisSelected ? null : att.id;
                             setSelectedAttendeeId(next);
                             if (!next) return;
-
-                            // NEW: if staff/admin selects seat with no order, auto-ensure it
                             const existing = selectedBs.orders?.some(
                               (o) => o.attendee_id === att.id,
                             );
@@ -1206,7 +1160,6 @@ export function FloorViewPage() {
 
                       <div style={{ marginBottom: "10px" }}>
                         <div style={s.panelLabel}>Order</div>
-
                         {selectedItems.length === 0 ? (
                           <div
                             style={{ fontSize: "12px", color: "var(--muted)" }}
@@ -1236,7 +1189,6 @@ export function FloorViewPage() {
                                   {item.quantity}
                                 </div>
                               </div>
-
                               <div
                                 style={{
                                   display: "flex",
@@ -1289,7 +1241,6 @@ export function FloorViewPage() {
                                     </button>
                                   </div>
                                 )}
-
                                 <span
                                   style={{
                                     fontSize: "12px",
@@ -1302,7 +1253,6 @@ export function FloorViewPage() {
                                       (item.quantity || 0),
                                   )}
                                 </span>
-
                                 {!isLocked && (
                                   <button
                                     onClick={() => removeItem(item.id)}
@@ -1315,7 +1265,6 @@ export function FloorViewPage() {
                             </div>
                           ))
                         )}
-
                         {selectedOrder && selectedItems.length > 0 && (
                           <div
                             style={{
@@ -1421,283 +1370,6 @@ export function FloorViewPage() {
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-function ReservationEditPanel({ bootstrap, allTables, onSaved }) {
-  const res = bootstrap.reservation;
-  const [form, setForm] = useState({
-    date: res.date || "",
-    start_time: res.start_time || "",
-    status: res.status || "draft",
-    notes: res.notes || "",
-  });
-  const [saving, setSaving] = useState(false);
-  const [editingAttendee, setEditingAttendee] = useState(null);
-
-  const saveReservation = async () => {
-    setSaving(true);
-    try {
-      const normalized = Object.fromEntries(
-        Object.entries(form).map(([k, v]) => [k, v === "" ? null : v]),
-      );
-
-      const original = {
-        date: res.date ?? null,
-        start_time: res.start_time ?? null,
-        status: res.status ?? null,
-        notes: res.notes ?? null,
-      };
-
-      const payload = {};
-      for (const [k, v] of Object.entries(normalized)) {
-        if (k === "date") continue;
-        if (v !== original[k]) payload[k] = v;
-      }
-
-      await api.patch(`/api/admin/reservations/${res.id}`, payload);
-
-      toast.success("Saved");
-      onSaved();
-    } catch (err) {
-      toast.error(
-        Array.isArray(err?.detail)
-          ? err.detail.map((e) => e.msg).join(", ")
-          : err?.detail || "Failed to save",
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const saveAttendee = async (id, patch) => {
-    try {
-      await api.patch(`/api/admin/attendees/${id}`, patch);
-      toast.success("Attendee saved");
-      onSaved();
-      setEditingAttendee(null);
-    } catch (err) {
-      toast.error(
-        Array.isArray(err?.detail)
-          ? err.detail.map((e) => e.msg).join(", ")
-          : err?.detail || "Failed",
-      );
-    }
-  };
-
-  const removeAttendee = async (id) => {
-    try {
-      await api.delete(`/api/admin/attendees/${id}`);
-      toast.success("Removed");
-      onSaved();
-    } catch (err) {
-      toast.error(
-        Array.isArray(err?.detail)
-          ? err.detail.map((e) => e.msg).join(", ")
-          : err?.detail || "Failed",
-      );
-    }
-  };
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-      <div>
-        <div style={s.panelLabel}>Reservation #{res.id}</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-          <div>
-            <div style={s.fieldLabel}>Date</div>
-            <input
-              style={s.fieldInput}
-              type="date"
-              value={form.date}
-              onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
-            />
-          </div>
-          <div>
-            <div style={s.fieldLabel}>Time</div>
-            <input
-              style={s.fieldInput}
-              type="time"
-              value={form.start_time}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, start_time: e.target.value }))
-              }
-            />
-          </div>
-          <div>
-            <div style={s.fieldLabel}>Status</div>
-            <select
-              style={s.fieldInput}
-              value={form.status}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, status: e.target.value }))
-              }
-            >
-              <option value="draft">Draft</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-          </div>
-          <div>
-            <div style={s.fieldLabel}>Notes</div>
-            <textarea
-              style={{ ...s.fieldInput, resize: "vertical" }}
-              rows={2}
-              value={form.notes}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, notes: e.target.value }))
-              }
-            />
-          </div>
-          <button onClick={saveReservation} disabled={saving} style={s.saveBtn}>
-            {saving ? "Saving..." : "Save Reservation"}
-          </button>
-        </div>
-      </div>
-
-      <div
-        style={{ borderTop: "1px solid var(--border-dim)", paddingTop: "14px" }}
-      >
-        <div style={s.panelLabel}>Attendees</div>
-        {(bootstrap.attendees || []).map((att) => (
-          <div
-            key={att.id}
-            style={{
-              marginBottom: "8px",
-              padding: "8px",
-              background: "var(--panel-2)",
-              borderRadius: "var(--radius-sm)",
-              border: "1px solid var(--border-dim)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: "12px",
-                  fontWeight: 700,
-                  color: "var(--text)",
-                }}
-              >
-                {att.member?.name || att.guest_name || "Guest"}
-              </div>
-              <div style={{ display: "flex", gap: "4px" }}>
-                <button
-                  style={s.tinyBtn}
-                  onClick={() =>
-                    setEditingAttendee(
-                      editingAttendee === att.id ? null : att.id,
-                    )
-                  }
-                >
-                  {editingAttendee === att.id ? "Close" : "Edit"}
-                </button>
-                <button
-                  style={s.tinyDeleteBtn}
-                  onClick={() => removeAttendee(att.id)}
-                >
-                  Del
-                </button>
-              </div>
-            </div>
-
-            {(att.dietary_restrictions || []).length > 0 && (
-              <div
-                style={{
-                  fontSize: "10px",
-                  color: "var(--muted)",
-                  marginTop: "3px",
-                }}
-              >
-                {att.dietary_restrictions.join(", ")}
-              </div>
-            )}
-
-            {editingAttendee === att.id && (
-              <AttendeeEditInline
-                attendee={att}
-                onSave={(patch) => saveAttendee(att.id, patch)}
-              />
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function AttendeeEditInline({ attendee, onSave }) {
-  const [form, setForm] = useState({
-    guest_name: attendee.guest_name || "",
-    dietary_restrictions: attendee.dietary_restrictions || [],
-  });
-
-  const toggleDiet = (val) =>
-    setForm((f) => ({
-      ...f,
-      dietary_restrictions: f.dietary_restrictions.includes(val)
-        ? f.dietary_restrictions.filter((d) => d !== val)
-        : [...f.dietary_restrictions, val],
-    }));
-
-  return (
-    <div
-      style={{
-        marginTop: "10px",
-        paddingTop: "10px",
-        borderTop: "1px solid var(--border-dim)",
-      }}
-    >
-      <div style={s.fieldLabel}>Name</div>
-      <input
-        style={{ ...s.fieldInput, marginBottom: "8px" }}
-        value={form.guest_name}
-        onChange={(e) => setForm((f) => ({ ...f, guest_name: e.target.value }))}
-      />
-      <div style={s.fieldLabel}>Dietary</div>
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: "4px",
-          marginBottom: "8px",
-        }}
-      >
-        {DIETARY_OPTIONS.map((opt) => {
-          const on = form.dietary_restrictions.includes(opt);
-          return (
-            <button
-              key={opt}
-              type="button"
-              onClick={() => toggleDiet(opt)}
-              style={{
-                padding: "2px 7px",
-                fontSize: "9px",
-                fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                cursor: "pointer",
-                borderRadius: "2px",
-                boxShadow: "none",
-                border: `1px solid ${on ? "var(--accent)" : "var(--border-dim)"}`,
-                background: on ? "var(--accent)" : "white",
-                color: on ? "white" : "var(--muted)",
-              }}
-            >
-              {opt.replace(/_/g, " ")}
-            </button>
-          );
-        })}
-      </div>
-      <button style={s.saveBtn} onClick={() => onSave(form)}>
-        Save Attendee
-      </button>
     </div>
   );
 }
@@ -1931,36 +1603,6 @@ const s = {
     borderRadius: "var(--radius-sm)",
     cursor: "pointer",
     color: "var(--text)",
-    boxShadow: "none",
-  },
-  fieldLabel: {
-    fontSize: "10px",
-    fontWeight: 900,
-    textTransform: "uppercase",
-    letterSpacing: "0.07em",
-    color: "var(--muted)",
-    marginBottom: "3px",
-  },
-  fieldInput: {
-    width: "100%",
-    padding: "6px 8px",
-    fontSize: "12px",
-    border: "1.5px solid var(--border)",
-    borderRadius: "var(--radius-sm)",
-    color: "var(--text)",
-    background: "white",
-    boxSizing: "border-box",
-  },
-  saveBtn: {
-    width: "100%",
-    padding: "7px",
-    fontSize: "12px",
-    fontWeight: 700,
-    background: "var(--accent)",
-    border: "none",
-    borderRadius: "var(--radius-sm)",
-    cursor: "pointer",
-    color: "#fff",
     boxShadow: "none",
   },
   tinyBtn: {
