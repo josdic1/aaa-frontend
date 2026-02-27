@@ -1,8 +1,6 @@
-// src/pages/MenuPage.jsx
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { api } from "../utils/api";
-
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8080";
 
 const DIETARY_LABELS = {
   vegan: "Vegan",
@@ -46,56 +44,31 @@ const SECTION_TITLES = {
   other: "More",
 };
 
-function getSectionKey(name = "") {
-  const n = name.toLowerCase().trim();
+function getSectionKey(item) {
+  const explicit = (item.category || item.section || "").toLowerCase().trim();
+  if (SECTION_ORDER.includes(explicit)) return explicit;
+
+  const n = (item.name || "").toLowerCase().trim();
   if (n.startsWith("add ")) return "addons";
   if (n.includes("kids")) return "kids";
-  if (
-    n.includes("cheese board") ||
-    n.includes("burrata") ||
-    n.includes("pretzel") ||
-    n.includes("mezze")
-  )
+  if (n.match(/cheese board|burrata|pretzel|mezze|calamari|wings/))
     return "starters";
-  if (n.includes("salad") || n.includes("bowl")) return "salads";
+  if (n.match(/salad|bowl/)) return "salads";
   if (n.includes("hot dog")) return "hotdogs";
   if (
-    n.includes("cake") ||
-    n.includes("blond") ||
-    n.includes("churro") ||
-    n.includes("brownie") ||
-    n.includes("cookie") ||
-    n.includes("ice cream") ||
-    n.includes("sundae") ||
-    n.includes("popsicle")
+    n.match(/cake|blond|churro|brownie|cookie|ice cream|sundae|popsicle|tart/)
   )
     return "desserts";
-  if (
-    n.includes("lemonade") ||
-    n.includes("iced tea") ||
-    n.includes("arnold") ||
-    n.includes("water")
-  )
+  if (n.match(/lemonade|iced tea|arnold|water|soda|coffee|tea/))
     return "drinks";
+  if (n.match(/potato|chips|vegetable|fries|rings|coleslaw/)) return "sides";
   if (
-    n.includes("potato") ||
-    n.includes("chips") ||
-    n.includes("vegetable") ||
-    n.includes("fries") ||
-    n.includes("rings")
-  )
-    return "sides";
-  if (
-    n.includes("sandwich") ||
-    n.includes("club") ||
-    n.includes("burger") ||
-    n.includes("lobster roll") ||
-    n.includes("flatbread") ||
-    n.includes("strip steak") ||
-    n.includes("quesadilla") ||
-    n.includes("chicken salad")
+    n.match(
+      /sandwich|club|burger|lobster roll|flatbread|steak|quesadilla|chicken/,
+    )
   )
     return "mains";
+
   return "other";
 }
 
@@ -116,7 +89,7 @@ export function MenuPage() {
   const grouped = useMemo(() => {
     const acc = {};
     for (const item of items) {
-      const key = getSectionKey(item?.name || "");
+      const key = getSectionKey(item);
       (acc[key] ||= []).push(item);
     }
     for (const key of Object.keys(acc)) {
@@ -140,8 +113,10 @@ export function MenuPage() {
       })
       .join("\n\n");
 
-    navigator.clipboard.writeText(text);
-    alert("Menu copied to clipboard!");
+    navigator.clipboard
+      .writeText(text)
+      .then(() => toast.success("Menu copied to clipboard!"))
+      .catch(() => toast.error("Copy failed — check browser permissions."));
   };
 
   return (
@@ -151,8 +126,6 @@ export function MenuPage() {
           <div style={s.club}>Abeyton Lodge</div>
           <h1 style={s.title}>Menu</h1>
           <p style={s.subtitle}>Seasonal selections prepared daily.</p>
-
-          {/* BRUTALIST ORANGE BUTTON */}
           <button onClick={handleTextMenu} style={s.brutalistBtn}>
             Text Menu
           </button>
@@ -221,10 +194,8 @@ const s = {
     color: "#1a1a18",
   },
   subtitle: { fontSize: "14px", color: "#666", margin: "0 0 20px" },
-
-  // Brutalist Orange Button
   brutalistBtn: {
-    background: "#ff5f1f", // International Orange
+    background: "#ff5f1f",
     color: "white",
     border: "3px solid #1a1a18",
     padding: "10px 24px",
@@ -237,7 +208,6 @@ const s = {
     transition: "transform 0.1s",
     outline: "none",
   },
-
   list: { display: "flex", flexDirection: "column" },
   section: { marginBottom: "18px" },
   sectionTitle: {

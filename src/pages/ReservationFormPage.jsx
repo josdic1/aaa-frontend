@@ -2,27 +2,11 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useData } from "../hooks/useData";
-import { useSchema } from "../hooks/useSchema";
 import { useAuth } from "../hooks/useAuth";
 import { api } from "../utils/api";
+import { DIETARY_OPTIONS } from "../constants/dietary";
 
 const TODAY = new Date().toISOString().split("T")[0];
-
-const DIETARY_OPTIONS = [
-  "dairy_free",
-  "egg_free",
-  "fish_allergy",
-  "gluten_free",
-  "halal",
-  "kosher",
-  "nut_allergy",
-  "peanut_allergy",
-  "sesame_allergy",
-  "shellfish_allergy",
-  "soy_free",
-  "vegan",
-  "vegetarian",
-];
 
 const ALLOWED_ROOMS = [
   "Breakfast Nook",
@@ -62,8 +46,7 @@ function getTimeSlots(mealType, dateStr) {
 export function ReservationFormPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { members, diningRooms, refresh } = useData();
-  const { schema } = useSchema();
+  const { members, diningRooms, refresh, schema } = useData();
 
   const MAX_PARTY = schema?._config?.max_party_size ?? 4;
 
@@ -182,10 +165,7 @@ export function ReservationFormPage() {
       toast.error("Dinner is only available Thu–Sat");
       return;
     }
-    if (!form.room_id) {
-      toast.error("Please select a room");
-      return;
-    }
+    // Room selection is now optional, removing validation check.
 
     setLoading(true);
     try {
@@ -235,7 +215,6 @@ export function ReservationFormPage() {
       </div>
 
       <form onSubmit={handleSubmit}>
-        {/* WHEN + WHERE */}
         <div className="card" style={s.section}>
           <div style={s.sectionTitle}>When &amp; Where</div>
           <div style={s.grid2}>
@@ -298,8 +277,8 @@ export function ReservationFormPage() {
           )}
 
           <div className="field" style={{ marginBottom: 0 }}>
-            <label>Room Preference</label>
-            <select value={form.room_id} onChange={set("room_id")} required>
+            <label>Room Preference (Optional)</label>
+            <select value={form.room_id} onChange={set("room_id")}>
               <option value="">Select a room...</option>
               {activeRooms.map((r) => (
                 <option key={r.id} value={r.id}>
@@ -310,7 +289,6 @@ export function ReservationFormPage() {
           </div>
         </div>
 
-        {/* ATTENDEES */}
         <div className="card" style={s.section}>
           <div style={s.attendeeHeaderMain}>
             <div style={s.sectionTitle}>
@@ -462,7 +440,6 @@ export function ReservationFormPage() {
           )}
         </div>
 
-        {/* NOTES */}
         <div className="card" style={s.section}>
           <div style={s.sectionTitle}>Notes</div>
           <div className="field" style={{ marginBottom: 0 }}>
@@ -477,7 +454,6 @@ export function ReservationFormPage() {
           </div>
         </div>
 
-        {/* SUBMIT */}
         <div style={s.submitRow}>
           <label style={s.confirmToggle}>
             <input
@@ -622,6 +598,7 @@ const s = {
     boxShadow: "2px 2px 0 var(--border)",
     textAlign: "left",
     minWidth: "140px",
+    color: "var(--muted)",
   },
   guestInputWrapper: {
     display: "flex",

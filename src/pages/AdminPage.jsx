@@ -1,16 +1,23 @@
-// src/pages/AdminPage.jsx
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useData } from "../hooks/useData";
 import { api } from "../utils/api";
 import { ReservationThermometer } from "../components/ReservationThermometer";
+import { extractError } from "../utils/errors";
+import { formatPrice, formatTime } from "../utils/format";
 
-function extractError(err) {
-  if (!err) return "Something went wrong";
-  if (typeof err.detail === "string") return err.detail;
-  if (Array.isArray(err.detail)) return err.detail.map((e) => e.msg).join(", ");
-  if (typeof err === "string") return err;
-  return "Something went wrong";
+/**
+ * Sanitizes patch data for backend compatibility.
+ * Defined outside the component to prevent re-declaration on every render.
+ */
+function sanitizeReservationPatch(patch) {
+  const out = {};
+  for (const [k, v] of Object.entries(patch || {})) {
+    if (k === "date") continue; // backend rejects date on PATCH
+    if (v === "" || v === undefined) continue;
+    out[k] = v;
+  }
+  return out;
 }
 
 export function AdminPage() {
@@ -34,13 +41,13 @@ export function AdminPage() {
       const [resData, assignData, ordersData] = await Promise.all([
         api.get(`/api/admin/daily?date=${date}`),
         api.get(`/api/admin/seat-assignments?date=${date}`),
-        api.get(`/api/admin/orders?status=fired`),
+        api.get(`/api/admin/orders?status=fired&date=${date}`),
       ]);
       setReservations(resData.reservations || []);
       setAssignments(assignData || []);
       setFiredOrders(ordersData || []);
     } catch (err) {
-      toast.error("Failed to load admin data");
+      toast.error(extractError(err) || "Failed to load admin data");
     } finally {
       setLoading(false);
     }
@@ -60,19 +67,6 @@ export function AdminPage() {
     return `${room?.name || "Room"} — ${table.name}`;
   };
 
-  // Use admin route so lifecycle locks don't block status changes
-  // Add near top of file (below extractError is fine)
-  function sanitizeReservationPatch(patch) {
-    const out = {};
-    for (const [k, v] of Object.entries(patch || {})) {
-      if (k === "date") continue; // backend rejects date on PATCH
-      if (v === "" || v === undefined) continue;
-      out[k] = v;
-    }
-    return out;
-  }
-
-  // Use admin route so lifecycle locks don't block status changes
   const updateStatus = async (reservationId, status) => {
     try {
       const payload = sanitizeReservationPatch({ status });
@@ -86,8 +80,6 @@ export function AdminPage() {
 
   const openAssignModal = (res) => {
     setAssigning(res);
-
-    // If this reservation already has a seat assignment, preselect that table + its room.
     const existing = getAssignment(res.reservation_id);
     if (existing) {
       const t = tables.find((x) => x.id === existing.table_id);
@@ -95,8 +87,6 @@ export function AdminPage() {
       setSelectedTableId(String(existing.table_id));
       return;
     }
-
-    // Otherwise fall back to booking preference (room) with no table selected.
     setSelectedRoomId(res.dining_room_id ? String(res.dining_room_id) : "");
     setSelectedTableId("");
   };
@@ -150,15 +140,6 @@ export function AdminPage() {
       toast.error(extractError(err));
     }
   };
-
-  const formatTime = (t) => {
-    if (!t) return "";
-    const [h, m] = t.split(":");
-    const hour = parseInt(h);
-    return `${hour % 12 === 0 ? 12 : hour % 12}:${m} ${hour < 12 ? "AM" : "PM"}`;
-  };
-
-  const formatPrice = (cents) => `$${((cents || 0) / 100).toFixed(2)}`;
 
   const statusColor = {
     draft: "var(--muted)",
@@ -266,23 +247,7 @@ export function AdminPage() {
                     >
                       #{res.reservation_id} · {res.party_size} guest
                       {res.party_size !== 1 ? "s" : ""}
-                      {res.dining_room_id &&
-                        ` · Prefers: ${(diningRooms || []).find((r) => r.id === res.dining_room_id)?.name || "—"}`}
-                      {res.message_count > 0 &&
-                        ` · ${res.message_count} message${res.message_count !== 1 ? "s" : ""}`}
                     </div>
-                    {res.notes && (
-                      <div
-                        style={{
-                          fontSize: "12px",
-                          marginTop: "6px",
-                          fontStyle: "italic",
-                          color: "var(--muted)",
-                        }}
-                      >
-                        "{res.notes}"
-                      </div>
-                    )}
                   </div>
                   <span
                     style={{
@@ -294,7 +259,6 @@ export function AdminPage() {
                   </span>
                 </div>
 
-                {/* Thermometer */}
                 <div style={{ padding: "12px 0 4px" }}>
                   <ReservationThermometer
                     reservation={res}
@@ -341,46 +305,23 @@ export function AdminPage() {
                 </div>
 
                 <div style={s.actionRow}>
-                  {res.status === "draft" && (
-                    <>
-                      <button
-                        className="primary"
-                        style={{ fontSize: "12px" }}
-                        onClick={() =>
-                          updateStatus(res.reservation_id, "confirmed")
-                        }
-                      >
-                        Confirm
-                      </button>
-                      <button
-                        style={s.dangerBtn}
-                        onClick={() =>
-                          updateStatus(res.reservation_id, "cancelled")
-                        }
-                      >
-                        Cancel
-                      </button>
-                    </>
-                  )}
-                  {res.status === "confirmed" && (
-                    <button
-                      style={s.dangerBtn}
-                      onClick={() =>
-                        updateStatus(res.reservation_id, "cancelled")
-                      }
-                    >
-                      Cancel Reservation
-                    </button>
-                  )}
-                  {res.status === "cancelled" && (
-                    <button
-                      className="ghost"
-                      style={{ fontSize: "12px" }}
-                      onClick={() => updateStatus(res.reservation_id, "draft")}
-                    >
-                      Restore to Draft
-                    </button>
-                  )}
+                  <button
+                    className="primary"
+                    style={{ fontSize: "12px" }}
+                    onClick={() =>
+                      updateStatus(res.reservation_id, "confirmed")
+                    }
+                  >
+                    Confirm
+                  </button>
+                  <button
+                    style={s.dangerBtn}
+                    onClick={() =>
+                      updateStatus(res.reservation_id, "cancelled")
+                    }
+                  >
+                    Cancel
+                  </button>
                 </div>
               </div>
             );
@@ -388,83 +329,67 @@ export function AdminPage() {
         </div>
       )}
 
+      
+
       {tab === "orders" && (
-        <div>
-          {firedOrders.length === 0 && (
-            <div className="card">
-              <p className="muted">No fired orders waiting for fulfillment.</p>
+        <div key={order.id} className="card" style={s.orderCard}>
+          <div style={s.orderHeader}>
+            <div>
+              <div style={{ fontWeight: 900, fontSize: "15px" }}>
+                Order #{order.id}
+              </div>
+            </div>
+            <button
+              className="primary"
+              style={{ fontSize: "12px" }}
+              onClick={() => fulfillOrder(order.id)}
+            >
+              ✓ Fulfill
+            </button>
+          </div>
+
+          {/* NEW: Using formatPrice here logic */}
+          {order.items?.length > 0 && (
+            <div
+              style={{
+                borderTop: "1px solid var(--border-dim)",
+                marginTop: "12px",
+                paddingTop: "8px",
+              }}
+            >
+              {order.items.map((item) => (
+                <div
+                  key={item.id}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: "13px",
+                    padding: "4px 0",
+                  }}
+                >
+                  <span>
+                    {item.name_snapshot}{" "}
+                    {item.quantity > 1 && `x${item.quantity}`}
+                  </span>
+                  <span style={{ fontWeight: 700 }}>
+                    {formatPrice(
+                      (item.price_cents_snapshot || 0) * item.quantity,
+                    )}
+                  </span>
+                </div>
+              ))}
             </div>
           )}
-          {firedOrders.map((order) => (
-            <div key={order.id} className="card" style={s.orderCard}>
-              <div style={s.orderHeader}>
-                <div>
-                  <div style={{ fontWeight: 900, fontSize: "15px" }}>
-                    Order #{order.id}
-                  </div>
-                  <div
-                    className="muted"
-                    style={{ fontSize: "11px", marginTop: "2px" }}
-                  >
-                    Attendee #{order.attendee_id}
-                  </div>
-                </div>
-                <button
-                  className="primary"
-                  style={{ fontSize: "12px" }}
-                  onClick={() => fulfillOrder(order.id)}
-                >
-                  ✓ Fulfill
-                </button>
-              </div>
-              {order.items?.length > 0 && (
-                <div style={s.itemList}>
-                  {order.items.map((item) => (
-                    <div key={item.id} style={s.itemRow}>
-                      <span style={{ fontSize: "13px" }}>
-                        {item.name_snapshot}
-                        {item.quantity > 1 && (
-                          <span className="muted"> ×{item.quantity}</span>
-                        )}
-                      </span>
-                      <span style={{ fontSize: "13px", fontWeight: 700 }}>
-                        {formatPrice(
-                          (item.price_cents_snapshot || 0) * item.quantity,
-                        )}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
         </div>
       )}
 
       {assigning && (
         <div style={s.modalOverlay} onClick={() => setAssigning(null)}>
           <div style={s.modal} onClick={(e) => e.stopPropagation()}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "flex-start",
-                marginBottom: "20px",
-              }}
-            >
-              <div>
-                <div style={s.modalTitle}>Assign Table</div>
-                <div className="muted" style={{ fontSize: "12px" }}>
-                  #{assigning.reservation_id} ·{" "}
-                  {formatTime(assigning.start_time)} · {assigning.party_size}{" "}
-                  guest{assigning.party_size !== 1 ? "s" : ""}
-                </div>
-              </div>
-              <button onClick={() => setAssigning(null)} style={s.closeBtn}>
-                ✕
-              </button>
-            </div>
-
+            <div style={s.modalTitle}>Assign Table</div>
+            <button onClick={() => setAssigning(null)} style={s.closeBtn}>
+              ✕
+            </button>
             <div className="field">
               <label>Room</label>
               <select
@@ -475,17 +400,13 @@ export function AdminPage() {
                 }}
               >
                 <option value="">Select a room...</option>
-                {activeRooms.map((room) => {
-                  const count = tablesInRoom(room.id).length;
-                  return (
-                    <option key={room.id} value={room.id}>
-                      {room.name} ({count} table{count !== 1 ? "s" : ""})
-                    </option>
-                  );
-                })}
+                {activeRooms.map((room) => (
+                  <option key={room.id} value={room.id}>
+                    {room.name}
+                  </option>
+                ))}
               </select>
             </div>
-
             {selectedRoomId && (
               <div className="field">
                 <label>Table</label>
@@ -497,37 +418,11 @@ export function AdminPage() {
                   {tablesInRoom(selectedRoomId).map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.name} — {t.seat_count} seats
-                      {t.seat_count < assigning.party_size
-                        ? " ⚠ too small"
-                        : ""}
                     </option>
                   ))}
                 </select>
-                {selectedTableId &&
-                  (() => {
-                    const t = tables.find(
-                      (t) => t.id === parseInt(selectedTableId),
-                    );
-                    if (t && t.seat_count < assigning.party_size) {
-                      return (
-                        <div
-                          style={{
-                            fontSize: "11px",
-                            color: "var(--red)",
-                            marginTop: "4px",
-                            fontWeight: 700,
-                          }}
-                        >
-                          ⚠ Table seats {t.seat_count}, party has{" "}
-                          {assigning.party_size} guests.
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
               </div>
             )}
-
             <div
               style={{
                 display: "flex",
@@ -626,13 +521,6 @@ const s = {
     justifyContent: "space-between",
     alignItems: "flex-start",
     marginBottom: "12px",
-  },
-  itemList: { borderTop: "1px solid var(--border-dim)", paddingTop: "8px" },
-  itemRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    padding: "6px 0",
-    borderBottom: "1px solid var(--border-dim)",
   },
   modalOverlay: {
     position: "fixed",

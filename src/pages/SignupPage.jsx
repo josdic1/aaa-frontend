@@ -3,7 +3,6 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8080";
-const STAFF_CODE = "STAFF2026";
 
 export function SignupPage() {
   const { login } = useAuth();
@@ -35,10 +34,9 @@ export function SignupPage() {
       setError("Passwords do not match");
       return;
     }
-    if (form.password.length < 6) {
-      setError("Password must be at least 6 characters");
-      return;
-    }
+
+    // L-09 FIX: Removed frontend-only "length < 6" check.
+    // Backend validation will now surface naturally.
 
     setLoading(true);
     try {
@@ -57,6 +55,8 @@ export function SignupPage() {
       const data = await res.json();
 
       if (!res.ok) {
+        // SURFACING BACKEND ERRORS:
+        // Handles both Pydantic list errors and custom detail strings.
         const msg = Array.isArray(data?.detail)
           ? data.detail.map((e) => e.msg).join(", ")
           : data?.detail || "Registration failed";
@@ -73,7 +73,6 @@ export function SignupPage() {
   };
 
   const codeEntered = form.invite_code.trim().length > 0;
-  const codeValid = form.invite_code.trim() === STAFF_CODE;
 
   return (
     <div style={s.root}>
@@ -105,7 +104,7 @@ export function SignupPage() {
             value={form.password}
             onChange={set("password")}
             onKeyDown={(e) => e.key === "Enter" && submit()}
-            placeholder="Minimum 6 characters"
+            placeholder="Choose a strong password"
           />
         </div>
 
@@ -127,26 +126,22 @@ export function SignupPage() {
             <span style={s.labelHint}>— leave blank if you're a member</span>
           </label>
           <input
-            style={{
-              ...s.input,
-              borderColor: codeEntered
-                ? codeValid
-                  ? "#2e7d32"
-                  : "#c0392b"
-                : "var(--border)",
-            }}
+            style={s.input}
             type="text"
             value={form.invite_code}
             onChange={set("invite_code")}
             onKeyDown={(e) => e.key === "Enter" && submit()}
             placeholder="Optional"
           />
-          {codeEntered && codeValid && (
-            <div style={s.codeHintGood}>✓ Staff access verified</div>
-          )}
-          {codeEntered && !codeValid && (
-            <div style={s.codeHintBad}>
-              ✗ Invalid code — signing up as member
+          {codeEntered && (
+            <div
+              style={{
+                fontSize: "11px",
+                color: "var(--muted)",
+                marginTop: "5px",
+              }}
+            >
+              Invite code will be verified on submission.
             </div>
           )}
         </div>
@@ -177,7 +172,7 @@ const s = {
     alignItems: "center",
     justifyContent: "center",
     background: "var(--bg)",
-    padding: "16px", // Reduced padding for outer root
+    padding: "16px",
   },
   card: {
     width: "100%",
@@ -187,7 +182,6 @@ const s = {
     borderWidth: "2px",
     borderStyle: "solid",
     borderColor: "var(--border)",
-    // clamp padding: smaller on mobile, 44px on desktop
     padding: "clamp(24px, 8vw, 44px)",
     boxShadow: "4px 4px 0 var(--border)",
     boxSizing: "border-box",
@@ -212,9 +206,7 @@ const s = {
   error: {
     padding: "10px 14px",
     background: "#fff0f0",
-    borderWidth: "1.5px",
-    borderStyle: "solid",
-    borderColor: "#c0392b",
+    border: "1.5px solid #c0392b",
     borderRadius: "var(--radius-sm)",
     color: "#c0392b",
     fontSize: "13px",
@@ -234,15 +226,13 @@ const s = {
     color: "var(--muted)",
     fontWeight: 400,
     textTransform: "none",
-    display: "inline-block", // Ensures it handles wrapping better
+    display: "inline-block",
   },
   input: {
     width: "100%",
-    padding: "12px", // Slightly larger hit target for touch
-    fontSize: "15px", // Prevents iOS auto-zoom (needs to be ~16px but 15px works with scale)
-    borderWidth: "2px",
-    borderStyle: "solid",
-    borderColor: "var(--border)",
+    padding: "12px",
+    fontSize: "15px",
+    border: "2px solid var(--border)",
     borderRadius: "var(--radius-sm)",
     outline: "none",
     color: "var(--text)",
@@ -251,11 +241,11 @@ const s = {
   },
   btn: {
     width: "100%",
-    padding: "14px", // Easier to tap on mobile
+    padding: "14px",
     fontSize: "14px",
     fontWeight: 900,
     background: "var(--accent)",
-    border: "2px solid var(--border)", // Adding border for Neo-Brutalist look
+    border: "2px solid var(--border)",
     borderRadius: "var(--radius-sm)",
     cursor: "pointer",
     color: "white",
@@ -267,17 +257,5 @@ const s = {
     fontSize: "13px",
     color: "var(--muted)",
     textAlign: "center",
-  },
-  codeHintGood: {
-    fontSize: "11px",
-    fontWeight: 700,
-    color: "#2e7d32",
-    marginTop: "5px",
-  },
-  codeHintBad: {
-    fontSize: "11px",
-    fontWeight: 700,
-    color: "#c0392b",
-    marginTop: "5px",
   },
 };

@@ -1,13 +1,4 @@
 // src/components/ReservationThermometer.jsx
-//
-// Usage — home page (status only):
-//   <ReservationThermometer reservation={r} />
-//
-// Usage — admin daily row (has party_size, table, status):
-//   <ReservationThermometer reservation={res} adminData={res} seatAssignment={assignment} />
-//
-// Usage — detail page (has attendees, orders, order_items):
-//   <ReservationThermometer reservation={reservation} detailData={data} seatAssignment={seatAssignment} />
 
 const STAGES = [
   { key: "created", label: "Created" },
@@ -39,81 +30,28 @@ function computeStages(reservation, adminData, detailData, seatAssignment) {
   } else if (adminData?.party_size > 0) {
     attendees = "done";
   } else if (status === "confirmed") {
-    // confirmed reservations must have had attendees added at booking time
     attendees = "done";
-  }
-
-  // Helper: “any evidence of orders/items anywhere”
-  function hasAnyOrderSignal(reservation, adminData, detailData) {
-    const arrLen = (v) => (Array.isArray(v) ? v.length : 0);
-
-    // Direct arrays (common)
-    if (arrLen(detailData?.orders) > 0) return true;
-    if (arrLen(detailData?.order_items) > 0) return true;
-    if (arrLen(adminData?.orders) > 0) return true;
-    if (arrLen(adminData?.order_items) > 0) return true;
-    if (arrLen(reservation?.orders) > 0) return true;
-    if (arrLen(reservation?.order_items) > 0) return true;
-
-    // Attendee-embedded order evidence (varies by serializer)
-    const attendees =
-      detailData?.attendees ||
-      adminData?.attendees ||
-      reservation?.attendees ||
-      [];
-
-    for (const a of attendees) {
-      if (arrLen(a?.orders) > 0) return true;
-      if (arrLen(a?.order_items) > 0) return true;
-      if (arrLen(a?.items) > 0) return true; // some APIs call them “items”
-      if (a?.has_order === true || a?.has_orders === true) return true;
-      if ((a?.orders_count ?? a?.order_count ?? 0) > 0) return true;
-      if ((a?.order_items_count ?? a?.items_count ?? 0) > 0) return true;
-    }
-
-    // Count/flag fields (common in list endpoints)
-    if (reservation?.has_order === true || reservation?.has_orders === true)
-      return true;
-    if (adminData?.has_order === true || adminData?.has_orders === true)
-      return true;
-    if ((reservation?.orders_count ?? reservation?.order_count ?? 0) > 0)
-      return true;
-    if ((adminData?.orders_count ?? adminData?.order_count ?? 0) > 0)
-      return true;
-    if ((reservation?.order_items_count ?? reservation?.items_count ?? 0) > 0)
-      return true;
-    if ((adminData?.order_items_count ?? adminData?.items_count ?? 0) > 0)
-      return true;
-
-    return false;
   }
 
   // ── ORDERS ────────────────────────────────────────────────
   let orders = "pending";
   if (isCancelled) {
     orders = "blocked";
-  } else if (Array.isArray(detailData?.orders)) {
+  } else if (detailData?.orders?.length > 0) {
     // Best/precise logic when detail payload includes orders + items
     const allOrders = detailData.orders;
     const allItems = detailData.order_items || [];
 
-    if (allOrders.length === 0) {
-      orders = "pending";
-    } else {
-      const anyHasItems = allOrders.some(
-        (o) => allItems.filter((i) => i.order_id === o.id).length > 0,
-      );
-      const allHaveItems = allOrders.every(
-        (o) => allItems.filter((i) => i.order_id === o.id).length > 0,
-      );
+    const anyHasItems = allOrders.some(
+      (o) => allItems.filter((i) => i.order_id === o.id).length > 0,
+    );
+    const allHaveItems = allOrders.every(
+      (o) => allItems.filter((i) => i.order_id === o.id).length > 0,
+    );
 
-      if (allHaveItems) orders = "done";
-      else if (anyHasItems) orders = "partial";
-      else orders = "partial"; // orders exist but items not linked/loaded
-    }
-  } else if (hasAnyOrderSignal(reservation, adminData, detailData)) {
-    // Fallback: ANY order evidence → partial
-    orders = "partial";
+    if (allHaveItems) orders = "done";
+    else if (anyHasItems) orders = "partial";
+    else orders = "partial"; // orders exist but items not linked/loaded
   } else if (attendees === "done") {
     orders = "pending";
   }
@@ -123,20 +61,17 @@ function computeStages(reservation, adminData, detailData, seatAssignment) {
   if (isCancelled) {
     seated = "blocked";
   } else {
-    // Explicit prop (Admin list passes assignment object; detail page passes seat_assignment)
     const hasExplicitSeat =
       Boolean(seatAssignment) ||
       (seatAssignment?.table_id ?? 0) > 0 ||
       (seatAssignment?.table?.id ?? 0) > 0;
 
-    // Common list/admin shapes
     const hasAdminSeat =
       Boolean(adminData?.table) ||
       (adminData?.table_id ?? 0) > 0 ||
       Boolean(adminData?.seat_assignment) ||
       (adminData?.seat_assignment_id ?? 0) > 0;
 
-    // Common detail/bootstrap shapes
     const hasDetailSeat =
       Boolean(detailData?.seat_assignment) ||
       Boolean(detailData?.reservation?.seat_assignment) ||
@@ -151,18 +86,16 @@ function computeStages(reservation, adminData, detailData, seatAssignment) {
   let fired = "pending";
   if (isCancelled) {
     fired = "blocked";
-  } else if (detailData?.orders) {
+  } else if (detailData?.orders?.length > 0) {
     const allOrders = detailData.orders;
-    if (allOrders.length > 0) {
-      const allFiredOrFulfilled = allOrders.every(
-        (o) => o.status === "fired" || o.status === "fulfilled",
-      );
-      const anyFiredOrFulfilled = allOrders.some(
-        (o) => o.status === "fired" || o.status === "fulfilled",
-      );
-      if (allFiredOrFulfilled) fired = "done";
-      else if (anyFiredOrFulfilled) fired = "partial";
-    }
+    const allFiredOrFulfilled = allOrders.every(
+      (o) => o.status === "fired" || o.status === "fulfilled",
+    );
+    const anyFiredOrFulfilled = allOrders.some(
+      (o) => o.status === "fired" || o.status === "fulfilled",
+    );
+    if (allFiredOrFulfilled) fired = "done";
+    else if (anyFiredOrFulfilled) fired = "partial";
   }
 
   // ── FULFILLED ─────────────────────────────────────────────
@@ -198,8 +131,8 @@ export function ReservationThermometer({
   reservation,
   adminData = null,
   detailData = null,
-  seatAssignment = null, // explicit source of truth when caller has it
-  size = "default", // "compact" | "default"
+  seatAssignment = null,
+  size = "default",
 }) {
   const stageState = computeStages(
     reservation,
@@ -238,7 +171,6 @@ export function ReservationThermometer({
               position: "relative",
             }}
           >
-            {/* Connector line — left side */}
             {!isFirst && (
               <div
                 style={{
@@ -256,7 +188,6 @@ export function ReservationThermometer({
               />
             )}
 
-            {/* Connector line — right side */}
             {!isLast && (
               <div
                 style={{
@@ -274,7 +205,6 @@ export function ReservationThermometer({
               />
             )}
 
-            {/* Dot */}
             <div
               style={{
                 width: isCompact ? 14 : 18,
@@ -323,7 +253,6 @@ export function ReservationThermometer({
               )}
             </div>
 
-            {/* Label */}
             {!isCompact && (
               <div
                 style={{

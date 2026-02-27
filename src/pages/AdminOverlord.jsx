@@ -3,6 +3,8 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import { api } from "../utils/api";
 import { useAuth } from "../hooks/useAuth";
+import { DIETARY_OPTIONS } from "../constants/dietary";
+import { extractError } from "../utils/errors";
 
 const TABS = [
   { key: "reservations", label: "Reservations" },
@@ -16,30 +18,7 @@ const TABS = [
   { key: "menu", label: "Menu" },
 ];
 
-const DIETARY_OPTIONS = [
-  "dairy_free",
-  "egg_free",
-  "fish_allergy",
-  "gluten_free",
-  "halal",
-  "kosher",
-  "nut_allergy",
-  "peanut_allergy",
-  "sesame_allergy",
-  "shellfish_allergy",
-  "soy_free",
-  "vegan",
-  "vegetarian",
-];
-
 const ROLES = ["member", "staff", "admin"];
-
-function extractError(err) {
-  if (!err) return "Something went wrong";
-  if (typeof err.detail === "string") return err.detail;
-  if (Array.isArray(err.detail)) return err.detail.map((e) => e.msg).join(", ");
-  return "Something went wrong";
-}
 
 function Badge({ children, color }) {
   return (
@@ -136,8 +115,7 @@ export function AdminOverlord() {
     menu: "/api/admin/menu-items",
   };
 
-  const ensureMembersIndex = useCallback(async () => {
-    if (membersLoaded) return;
+  const refreshMembersIndex = useCallback(async () => {
     try {
       const result = await api.get(endpoints.members);
       const rows = Array.isArray(result)
@@ -148,10 +126,14 @@ export function AdminOverlord() {
       setMembersById(map);
       setMembersLoaded(true);
     } catch {
-      // Don't hard fail the whole UI just because this enrichment failed.
-      // Names will fallback to guest_name/Guest.
+      // Don't hard fail
     }
-  }, [membersLoaded]);
+  }, []);
+
+  const ensureMembersIndex = useCallback(async () => {
+    if (membersLoaded) return;
+    await refreshMembersIndex();
+  }, [membersLoaded, refreshMembersIndex]);
 
   const hydrateAttendees = useCallback(
     (rows) => {
@@ -205,8 +187,8 @@ export function AdminOverlord() {
           ...prev,
           [section]: rows,
         }));
-      } catch {
-        toast.error(`Failed to load ${section}`);
+      } catch (err) {
+        toast.error(extractError(err) || `Failed to load ${section}`);
       } finally {
         setLoading(false);
       }
@@ -1964,7 +1946,7 @@ function NewMenuItemBtn({ onSaved }) {
 const os = {
   root: {
     display: "flex",
-    height: "100vh", // Lock the root to the screen height
+    height: "calc(100vh - 56px)", // Lock the root to the screen height
     width: "100vw",
     overflow: "hidden", // Prevent the body from scrolling
     background: "#0d0d0b",

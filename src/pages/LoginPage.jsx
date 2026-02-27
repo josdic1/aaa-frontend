@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-// Note: Keeping your existing imports
 
 export function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
@@ -16,9 +17,16 @@ export function LoginPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
+
+    // Resolve intended destination:
+    // 1. ?from= query param 2. location state 3. default home
+    const queryParams = new URLSearchParams(location.search);
+    const fromPath =
+      queryParams.get("from") || location.state?.from?.pathname || "/";
+
     try {
       await login(email, password);
-      navigate("/");
+      navigate(fromPath, { replace: true });
     } catch (err) {
       setError(err.detail || "Invalid email or password.");
     } finally {
@@ -26,7 +34,6 @@ export function LoginPage() {
     }
   };
 
-  // Quick-fill helpers (kept from your original code)
   const fill = (e, p) => {
     setEmail(e);
     setPassword(p);
@@ -45,30 +52,33 @@ export function LoginPage() {
             <br />
             Lodge
           </div>
-
           <div style={s.tagline}>
             Private dining reservations and member services for Abeyton Lodge.
           </div>
 
-          {/* Debug/Staff Links - Wrapped for mobile safety */}
-          <div
-            style={{
-              marginTop: "20px",
-              display: "flex",
-              flexWrap: "wrap",
-              gap: "10px",
-            }}
-          >
-            {["Staff1", "Staff2", "Sarah", "Jaime"].map((name) => (
-              <div
-                key={name}
-                style={s.debugLink}
-                onClick={() => fill(`${name.toLowerCase()}@josh.com`, "111111")}
-              >
-                {name}
-              </div>
-            ))}
-          </div>
+          {/* Debug/Staff Links - Only visible in DEV */}
+          {import.meta.env.DEV && (
+            <div
+              style={{
+                marginTop: "20px",
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "10px",
+              }}
+            >
+              {["Staff1", "Staff2", "Sarah", "Jaime"].map((name) => (
+                <div
+                  key={name}
+                  style={s.debugLink}
+                  onClick={() =>
+                    fill(`${name.toLowerCase()}@josh.com`, "111111")
+                  }
+                >
+                  {name}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div style={s.leftFooter}>
@@ -81,7 +91,14 @@ export function LoginPage() {
       <div style={s.right}>
         <div style={s.card}>
           <div style={s.cardHeader}>
-            <h1 style={s.title} onClick={() => fill("josh@josh.com", "1111")}>
+            <h1
+              style={s.title}
+              onClick={
+                import.meta.env.DEV
+                  ? () => fill("josh@josh.com", "1111")
+                  : undefined
+              }
+            >
               Welcome back.
             </h1>
             <p style={s.sub}>Sign in to your member account.</p>
@@ -97,7 +114,6 @@ export function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                autoComplete="email"
                 required
               />
             </div>
@@ -110,9 +126,7 @@ export function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  autoComplete="current-password"
                   required
-                  style={{ paddingRight: "60px" }}
                 />
                 <button
                   type="button"
@@ -142,14 +156,7 @@ export function LoginPage() {
 
           <p style={s.registerLink}>
             Don't have an account?{" "}
-            <Link
-              to="/signup"
-              style={{
-                fontWeight: 800,
-                borderBottom: "2px solid var(--accent)",
-                paddingBottom: "1px",
-              }}
-            >
+            <Link to="/signup" style={{ fontWeight: 800 }}>
               Request access
             </Link>
           </p>
@@ -160,7 +167,6 @@ export function LoginPage() {
 }
 
 const s = {
-  // Use 'auto-fit' so that if the screen is small, columns stack
   page: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
@@ -171,25 +177,22 @@ const s = {
     display: "flex",
     flexDirection: "column",
     justifyContent: "space-between",
-    padding: "clamp(24px, 5vw, 48px)", // Fluid padding
+    padding: "clamp(24px, 5vw, 48px)",
     position: "relative",
     overflow: "hidden",
-    minHeight: "300px", // Ensures it doesn't disappear entirely when stacked
+    minHeight: "300px",
   },
   pattern: {
     position: "absolute",
     inset: 0,
-    backgroundImage: `
-      repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(255,255,255,0.04) 39px, rgba(255,255,255,0.04) 40px),
-      repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(255,255,255,0.04) 39px, rgba(255,255,255,0.04) 40px)
-    `,
+    backgroundImage: `repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(255,255,255,0.04) 39px, rgba(255,255,255,0.04) 40px), repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(255,255,255,0.04) 39px, rgba(255,255,255,0.04) 40px)`,
     pointerEvents: "none",
   },
   circle: {
     position: "absolute",
     bottom: "-80px",
     right: "-80px",
-    width: "min(320px, 50vw)", // Circle gets smaller on small screens
+    width: "min(320px, 50vw)",
     height: "min(320px, 50vw)",
     background: "#f97316",
     borderRadius: "50%",
@@ -207,7 +210,7 @@ const s = {
   },
   lodgeName: {
     fontFamily: "Playfair Display, serif",
-    fontSize: "clamp(32px, 8vw, 52px)", // Text shrinks on mobile automatically
+    fontSize: "clamp(32px, 8vw, 52px)",
     fontWeight: 900,
     color: "#fff",
     lineHeight: 1.05,
@@ -245,8 +248,8 @@ const s = {
   right: {
     display: "flex",
     alignItems: "center",
-    justifyContent: "center",
-    padding: "24px", // Reduced padding for mobile
+    justifyCenter: "center",
+    padding: "24px",
     background: "var(--bg)",
   },
   card: { width: "100%", maxWidth: "400px" },

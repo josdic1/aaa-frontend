@@ -8,7 +8,6 @@ FRONTEND_TRAIL = [
     "src/contexts/DataContext.jsx",
     "src/providers/AuthProvider.jsx",
     "src/providers/DataProvider.jsx",
-    "src/hooks/useSchema.jsx",
     "src/hooks/useData.jsx",
     "src/App.jsx",
     "src/router.jsx",

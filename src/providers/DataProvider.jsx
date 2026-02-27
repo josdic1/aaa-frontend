@@ -1,4 +1,3 @@
-// src/providers/DataProvider.jsx
 import { useState, useEffect, useCallback } from "react";
 import { DataContext } from "../contexts/DataContext";
 import { useAuth } from "../hooks/useAuth";
@@ -11,14 +10,17 @@ export function DataProvider({ children }) {
   const [diningRooms, setDiningRooms] = useState([]);
   const [tables, setTables] = useState([]);
   const [members, setMembers] = useState([]);
+  const [schema, setSchema] = useState(null);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [schema, setSchema] = useState(null);
+  const [partialError, setPartialError] = useState(false);
 
   const fetchAll = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     setError(null);
+    setPartialError(false);
 
     try {
       const results = await Promise.allSettled([
@@ -30,7 +32,6 @@ export function DataProvider({ children }) {
         api.get("/api/schema"),
       ]);
 
-      // Map results to setters
       const setters = [
         setReservations,
         setMenuItems,
@@ -40,6 +41,8 @@ export function DataProvider({ children }) {
         setSchema,
       ];
 
+      let hasFailures = false;
+
       results.forEach((result, index) => {
         if (result.status === "fulfilled") {
           setters[index](result.value);
@@ -48,11 +51,13 @@ export function DataProvider({ children }) {
             `❌ DataProvider: Request ${index} failed:`,
             result.reason,
           );
-          // Optional: Set a partial error state so the UI knows some data is missing
+          hasFailures = true;
         }
       });
+
+      setPartialError(hasFailures);
     } catch (err) {
-      // This only catches if the actual code inside 'try' breaks
+      // Catches catastrophic failures in the fetching logic itself
       setError(err);
     } finally {
       setLoading(false);
@@ -75,11 +80,12 @@ export function DataProvider({ children }) {
     // state
     loading,
     error,
+    partialError,
 
     // actions
     refresh: fetchAll,
 
-    // setters for optimistic updates later
+    // setters for optimistic updates
     setReservations,
     setMenuItems,
     setMembers,

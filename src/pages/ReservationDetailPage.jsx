@@ -1,13 +1,22 @@
-// src/pages/ReservationDetailPage.jsx
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useData } from "../hooks/useData";
 import { useAuth } from "../hooks/useAuth";
 import { api } from "../utils/api";
 import { ReservationThermometer } from "../components/ReservationThermometer";
+import { DIETARY_OPTIONS } from "../constants/dietary";
+import { formatPrice, formatTime } from "../utils/format";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8080";
+
+const ALLOWED_ROOMS = [
+  "Breakfast Nook",
+  "Card Room",
+  "Croquet Court",
+  "Living Room",
+  "Pool",
+];
 
 export function ReservationDetailPage() {
   const { id } = useParams();
@@ -22,7 +31,7 @@ export function ReservationDetailPage() {
   const [confirming, setConfirming] = useState(false);
   const [view, setView] = useState("orders");
 
-  const fetchBootstrap = async () => {
+  const fetchBootstrap = useCallback(async () => {
     try {
       const result = await api.get(`/api/reservations/${id}/bootstrap`);
       setData(result);
@@ -32,11 +41,11 @@ export function ReservationDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, navigate]);
 
   useEffect(() => {
     fetchBootstrap();
-  }, [id]);
+  }, [fetchBootstrap]);
 
   const confirmReservation = async () => {
     setConfirming(true);
@@ -124,8 +133,12 @@ export function ReservationDetailPage() {
     );
   };
 
-  const openChit = (orderId) =>
-    window.open(`${API_BASE}/api/orders/${orderId}/chit`, "_blank");
+  const openChit = (orderId) => {
+    const token = localStorage.getItem("token");
+    // Appending the token directly to the URL so the new tab is authenticated
+    const url = `${API_BASE}/api/orders/${orderId}/chit?token=${token}`;
+    window.open(url, "_blank");
+  };
 
   if (loading)
     return (
@@ -151,14 +164,6 @@ export function ReservationDetailPage() {
     order_items.filter((i) => i.order_id === oId);
   const getAttendeeName = (a) => a.member?.name || a.guest_name || "Guest";
 
-  const formatTime = (t) => {
-    if (!t) return "";
-    const [h, m] = t.split(":");
-    const hour = parseInt(h);
-    return `${hour % 12 === 0 ? 12 : hour % 12}:${m} ${hour < 12 ? "AM" : "PM"}`;
-  };
-  const formatPrice = (cents) => `$${((cents || 0) / 100).toFixed(2)}`;
-
   const unfiredWithItems = orders.filter((o) => {
     const items = getItemsForOrder(o.id);
     return o.status === "open" && items.length > 0;
@@ -178,7 +183,6 @@ export function ReservationDetailPage() {
 
   return (
     <div className="page" style={{ maxWidth: "860px" }}>
-      {/* HEADER */}
       <div style={s.header}>
         <div>
           <button
@@ -241,7 +245,6 @@ export function ReservationDetailPage() {
             </p>
           )}
 
-          {/* ROOM PREFERENCE — editable if not cancelled */}
           {!isCancelled && (
             <RoomPreferenceEditor
               reservation={reservation}
@@ -298,7 +301,6 @@ export function ReservationDetailPage() {
         </div>
       </div>
 
-      {/* THERMOMETER */}
       <div style={{ marginBottom: "28px" }}>
         <ReservationThermometer
           reservation={reservation}
@@ -307,7 +309,6 @@ export function ReservationDetailPage() {
         />
       </div>
 
-      {/* TABS */}
       <div style={s.tabs}>
         <button
           style={{ ...s.tab, ...(view === "orders" ? s.tabActive : {}) }}
@@ -323,7 +324,6 @@ export function ReservationDetailPage() {
         </button>
       </div>
 
-      {/* FIRE ALL BANNER — staff only */}
       {isStaff && unfiredWithItems.length > 0 && (
         <div style={s.fireBanner}>
           <span>
@@ -336,7 +336,6 @@ export function ReservationDetailPage() {
         </div>
       )}
 
-      {/* ORDERS VIEW */}
       {view === "orders" && (
         <div>
           {attendees.map((attendee) => {
@@ -501,7 +500,6 @@ export function ReservationDetailPage() {
         </div>
       )}
 
-      {/* TABLE VIEW */}
       {view === "floor" && (
         <TableStatusView
           attendees={attendees}
@@ -512,7 +510,6 @@ export function ReservationDetailPage() {
           getOrderForAttendee={getOrderForAttendee}
           getItemsForOrder={getItemsForOrder}
           getAttendeeName={getAttendeeName}
-          formatPrice={formatPrice}
           onFire={fireOrder}
           onRemoveItem={removeItem}
           onAddItem={addItem}
@@ -523,7 +520,6 @@ export function ReservationDetailPage() {
         />
       )}
 
-      {/* ATTENDEES */}
       <div className="card" style={{ marginTop: "20px" }}>
         <AttendeeManager
           reservation={reservation}
@@ -534,7 +530,6 @@ export function ReservationDetailPage() {
         />
       </div>
 
-      {/* MESSAGES */}
       <div className="card" style={{ marginTop: "20px" }}>
         <div style={s.sectionTitle}>Messages</div>
         {messages.length === 0 && <p className="muted">No messages yet.</p>}
@@ -558,8 +553,6 @@ export function ReservationDetailPage() {
   );
 }
 
-// ── TABLE STATUS VIEW ─────────────────────────────────────────────────────────
-
 function TableStatusView({
   attendees,
   orders,
@@ -569,7 +562,6 @@ function TableStatusView({
   getOrderForAttendee,
   getItemsForOrder,
   getAttendeeName,
-  formatPrice,
   onFire,
   onRemoveItem,
   onAddItem,
@@ -901,24 +893,6 @@ function TableStatusView({
   );
 }
 
-// ── ATTENDEE MANAGER ─────────────────────────────────────────────────────────
-
-const DIETARY_OPTIONS = [
-  "dairy_free",
-  "egg_free",
-  "fish_allergy",
-  "gluten_free",
-  "halal",
-  "kosher",
-  "nut_allergy",
-  "peanut_allergy",
-  "sesame_allergy",
-  "shellfish_allergy",
-  "soy_free",
-  "vegan",
-  "vegetarian",
-];
-
 function AttendeeManager({
   reservation,
   attendees,
@@ -937,7 +911,7 @@ function AttendeeManager({
     .filter((a) => a.member_id)
     .map((a) => a.member_id);
   const availableMembers = members.filter(
-    (m) => m.user_id === reservation.user_id && !addedMemberIds.includes(m.id),
+    (m) => !addedMemberIds.includes(m.id),
   );
 
   const startEdit = (attendee) => {
@@ -1023,7 +997,6 @@ function AttendeeManager({
   return (
     <div>
       <div style={s.sectionTitle}>Attendees</div>
-
       <div
         style={{
           display: "flex",
@@ -1035,7 +1008,6 @@ function AttendeeManager({
         {attendees.map((a) => {
           const name = a.member?.name || a.guest_name || "Guest";
           const isEditing = editingId === a.id;
-
           return (
             <div
               key={a.id}
@@ -1082,8 +1054,6 @@ function AttendeeManager({
                   </div>
                 )}
               </div>
-
-              {/* Dietary tags — view mode */}
               {!isEditing && a.dietary_restrictions?.length > 0 && (
                 <div
                   style={{
@@ -1100,8 +1070,6 @@ function AttendeeManager({
                   ))}
                 </div>
               )}
-
-              {/* Dietary editor — edit mode */}
               {isEditing && (
                 <div style={{ marginTop: "10px" }}>
                   <div
@@ -1135,12 +1103,10 @@ function AttendeeManager({
                             padding: "4px 10px",
                             fontSize: "10px",
                             fontWeight: 700,
-                            letterSpacing: "0.06em",
                             textTransform: "uppercase",
                             border: "1.5px solid var(--border-dim)",
                             borderRadius: "2px",
                             cursor: "pointer",
-                            boxShadow: "none",
                             background: active ? "var(--accent)" : "white",
                             color: active ? "white" : "var(--text)",
                           }}
@@ -1173,11 +1139,8 @@ function AttendeeManager({
           );
         })}
       </div>
-
-      {/* Add controls */}
       {!isCancelled && (
         <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-          {/* Add household member */}
           {availableMembers.length > 0 && (
             <div>
               <div
@@ -1201,7 +1164,6 @@ function AttendeeManager({
                     disabled={saving}
                     style={{
                       padding: "8px 14px",
-                      fontSize: "12px",
                       background: "white",
                       border: "2px solid var(--border)",
                       borderRadius: "var(--radius-sm)",
@@ -1221,8 +1183,6 @@ function AttendeeManager({
               </div>
             </div>
           )}
-
-          {/* Add guest */}
           {!showAddGuest ? (
             <button
               type="button"
@@ -1269,31 +1229,18 @@ function AttendeeManager({
   );
 }
 
-// ── ROOM PREFERENCE EDITOR ───────────────────────────────────────────────────
-
-const ALLOWED_ROOMS = [
-  "Breakfast Nook",
-  "Card Room",
-  "Croquet Court",
-  "Living Room",
-  "Pool",
-];
-
 function RoomPreferenceEditor({ reservation, diningRooms, onUpdated }) {
   const [editing, setEditing] = useState(false);
   const [roomId, setRoomId] = useState(
     reservation.dining_room_id ? String(reservation.dining_room_id) : "",
   );
   const [saving, setSaving] = useState(false);
-
   const activeRooms = diningRooms.filter(
     (r) => r.is_active && ALLOWED_ROOMS.includes(r.name),
   );
-
   const currentRoom = diningRooms.find(
     (r) => r.id === reservation.dining_room_id,
   );
-
   const save = async () => {
     setSaving(true);
     try {
@@ -1308,7 +1255,6 @@ function RoomPreferenceEditor({ reservation, diningRooms, onUpdated }) {
       setSaving(false);
     }
   };
-
   if (!editing) {
     return (
       <div
@@ -1335,7 +1281,6 @@ function RoomPreferenceEditor({ reservation, diningRooms, onUpdated }) {
       </div>
     );
   }
-
   return (
     <div
       style={{
@@ -1384,12 +1329,9 @@ function RoomPreferenceEditor({ reservation, diningRooms, onUpdated }) {
   );
 }
 
-// ── MESSAGE COMPOSER ──────────────────────────────────────────────────────────
-
 function MessageComposer({ reservationId, onSent }) {
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
-
   const send = async () => {
     if (!body.trim()) return;
     setSending(true);
@@ -1403,7 +1345,6 @@ function MessageComposer({ reservationId, onSent }) {
       setSending(false);
     }
   };
-
   return (
     <div style={{ marginTop: "16px", display: "flex", gap: "8px" }}>
       <input
@@ -1424,8 +1365,6 @@ function MessageComposer({ reservationId, onSent }) {
     </div>
   );
 }
-
-// ── STYLES ────────────────────────────────────────────────────────────────────
 
 const s = {
   header: {
@@ -1448,7 +1387,6 @@ const s = {
     background: "none",
     border: "none",
     borderBottom: "2px solid transparent",
-    boxShadow: "none",
     cursor: "pointer",
     color: "var(--muted)",
     marginBottom: "-2px",
@@ -1473,7 +1411,6 @@ const s = {
     borderRadius: "var(--radius-sm)",
     cursor: "pointer",
     color: "#fff",
-    boxShadow: "none",
   },
   cancelBtn: {
     padding: "8px 18px",
@@ -1484,7 +1421,6 @@ const s = {
     borderRadius: "var(--radius-sm)",
     cursor: "pointer",
     color: "#c0392b",
-    boxShadow: "none",
   },
   ghostActionBtn: {
     padding: "8px 18px",
@@ -1495,7 +1431,6 @@ const s = {
     borderRadius: "var(--radius-sm)",
     cursor: "pointer",
     color: "var(--text)",
-    boxShadow: "none",
   },
   fireBtn: {
     padding: "8px 18px",
@@ -1506,7 +1441,6 @@ const s = {
     borderRadius: "var(--radius-sm)",
     cursor: "pointer",
     color: "#fff",
-    boxShadow: "none",
   },
   fireBanner: {
     display: "flex",
@@ -1564,7 +1498,6 @@ const s = {
   removeBtn: {
     background: "none",
     border: "none",
-    boxShadow: "none",
     color: "var(--muted)",
     fontSize: "13px",
     cursor: "pointer",
@@ -1638,9 +1571,8 @@ const s = {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    justifyContent: "center",
+    justifyCenter: "center",
     transition: "all 0.15s",
-    boxShadow: "none",
   },
   legend: {
     display: "flex",
@@ -1697,7 +1629,6 @@ const s = {
     cursor: "pointer",
     fontSize: "12px",
     width: "100%",
-    boxShadow: "none",
     color: "var(--text)",
   },
 };

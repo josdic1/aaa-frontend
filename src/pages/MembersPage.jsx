@@ -1,33 +1,18 @@
-// src/pages/MembersPage.jsx
 import { useState } from "react";
 import { useData } from "../hooks/useData";
 import { toast } from "sonner";
 import { api } from "../utils/api";
-
-const DIETARY_OPTIONS = [
-  "dairy_free",
-  "egg_free",
-  "fish_allergy",
-  "gluten_free",
-  "halal",
-  "kosher",
-  "nut_allergy",
-  "peanut_allergy",
-  "sesame_allergy",
-  "shellfish_allergy",
-  "soy_free",
-  "vegan",
-  "vegetarian",
-];
+import { DIETARY_OPTIONS } from "../constants/dietary";
 
 const emptyForm = { name: "", relation: "", dietary_restrictions: [] };
 
 export function MembersPage() {
   const { members, setMembers } = useData();
   const [form, setForm] = useState(emptyForm);
-  const [editing, setEditing] = useState(null); // member id being edited
+  const [editing, setEditing] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   const openNew = () => {
     setEditing(null);
@@ -82,10 +67,10 @@ export function MembersPage() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm("Remove this member?")) return;
     try {
       await api.delete(`/api/members/${id}`);
       setMembers((prev) => prev.filter((m) => m.id !== id));
+      setConfirmDeleteId(null); // Clear confirmation state
       toast.success("Member removed");
     } catch {
       toast.error("Failed to remove member");
@@ -106,7 +91,6 @@ export function MembersPage() {
         </button>
       </div>
 
-      {/* FORM */}
       {showForm && (
         <div className="card" style={s.formCard}>
           <h3 style={s.formTitle}>{editing ? "Edit Member" : "New Member"}</h3>
@@ -180,21 +164,6 @@ export function MembersPage() {
         </div>
       )}
 
-      {/* LIST */}
-      {members.length === 0 && !showForm && (
-        <div className="card" style={{ textAlign: "center", padding: "64px" }}>
-          <p style={{ fontSize: "16px", fontWeight: 700, marginBottom: "8px" }}>
-            No members yet.
-          </p>
-          <p className="muted" style={{ marginBottom: "24px" }}>
-            Add family members to include in reservations.
-          </p>
-          <button className="primary" onClick={openNew}>
-            Add First Member
-          </button>
-        </div>
-      )}
-
       <div style={s.list}>
         {members.map((m) => (
           <div key={m.id} className="card" style={s.memberCard}>
@@ -215,9 +184,33 @@ export function MembersPage() {
               <button className="ghost" onClick={() => openEdit(m)}>
                 Edit
               </button>
-              <button className="danger" onClick={() => handleDelete(m.id)}>
-                Remove
-              </button>
+
+              {confirmDeleteId === m.id ? (
+                <div style={s.confirmWrapper}>
+                  <span style={s.confirmLabel}>Remove?</span>
+                  <button
+                    className="ghost"
+                    style={s.yesBtn}
+                    onClick={() => handleDelete(m.id)}
+                  >
+                    Yes
+                  </button>
+                  <button
+                    className="ghost"
+                    style={s.noBtn}
+                    onClick={() => setConfirmDeleteId(null)}
+                  >
+                    No
+                  </button>
+                </div>
+              ) : (
+                <button
+                  className="danger"
+                  onClick={() => setConfirmDeleteId(m.id)}
+                >
+                  Remove
+                </button>
+              )}
             </div>
           </div>
         ))}
@@ -252,7 +245,6 @@ const s = {
     border: "1.5px solid",
     borderRadius: "2px",
     cursor: "pointer",
-    boxShadow: "none",
     transition: "all 0.1s",
   },
   formActions: {
@@ -284,5 +276,32 @@ const s = {
     letterSpacing: "0.06em",
     color: "var(--muted)",
   },
-  actions: { display: "flex", gap: "8px" },
+  actions: { display: "flex", gap: "8px", alignItems: "center" },
+  confirmWrapper: {
+    display: "flex",
+    gap: "6px",
+    alignItems: "center",
+    background: "var(--panel-2)",
+    padding: "4px 8px",
+    borderRadius: "4px",
+    border: "1px solid var(--border-dim)",
+  },
+  confirmLabel: {
+    fontSize: "11px",
+    fontWeight: 800,
+    color: "var(--muted)",
+    textTransform: "uppercase",
+  },
+  yesBtn: {
+    fontSize: "11px",
+    color: "var(--red)",
+    fontWeight: 900,
+    padding: "2px 6px",
+  },
+  noBtn: {
+    fontSize: "11px",
+    color: "var(--text)",
+    fontWeight: 900,
+    padding: "2px 6px",
+  },
 };

@@ -1,11 +1,15 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useLayoutEffect } from "react";
 
 export function NavBar() {
   const { user, logout } = useAuth();
   const { pathname } = useLocation();
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 850);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useLayoutEffect(() => {
+    setIsMobile(window.innerWidth < 850);
+  }, []);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 850);

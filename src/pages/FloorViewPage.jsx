@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { api } from "../utils/api";
 import { toast } from "sonner";
+import { DIETARY_OPTIONS } from "../constants/dietary";
+import { formatPrice } from "../utils/format";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8080";
 
@@ -40,22 +42,6 @@ const HEAT = {
     label: "All Fired",
   },
 };
-
-const DIETARY_OPTIONS = [
-  "dairy_free",
-  "egg_free",
-  "fish_allergy",
-  "gluten_free",
-  "halal",
-  "kosher",
-  "nut_allergy",
-  "peanut_allergy",
-  "sesame_allergy",
-  "shellfish_allergy",
-  "soy_free",
-  "vegan",
-  "vegetarian",
-];
 
 const stepDate = (dateStr, days) => {
   const d = new Date(dateStr + "T12:00:00");
@@ -96,7 +82,7 @@ export function FloorViewPage() {
     try {
       const [roomsData, tablesData, assignmentsData, menuData, dailyData] =
         await Promise.all([
-          api.get("/api/dining-rooms/"),
+          api.get("/api/dining-rooms"),
           api.get("/api/tables"),
           api.get("/api/admin/seat-assignments", { params: { date } }),
           api.get("/api/menu-items"),
@@ -153,7 +139,7 @@ export function FloorViewPage() {
     return "ordering";
   };
 
-  const formatPrice = (c) => `$${((c || 0) / 100).toFixed(2)}`;
+  // Redundant local formatPrice removed
   const getName = (att) => att?.member?.name || att?.guest_name || "Guest";
 
   const selectedBs = selectedTable ? getBootstrap(selectedTable.id) : null;
@@ -355,7 +341,8 @@ export function FloorViewPage() {
       setSelectedAttendeeId(null);
       await loadFloor();
       return;
-    } catch {
+    } catch (err1) {
+      console.error("[reseat] PATCH failed, attempting delete+recreate:", err1);
       try {
         if (assignment_id != null) {
           await api.delete(`/api/seat-assignments/${assignment_id}`);
@@ -363,7 +350,7 @@ export function FloorViewPage() {
         await api.post("/api/seat-assignments", {
           reservation_id,
           table_id: targetTable.id,
-          notes: "Moved from Floor View (recreate)",
+          notes: "Moved from Floor View (recreate fallback)",
         });
 
         toast.success(`Moved #${reservation_id} to ${targetTable.name}`);
@@ -1320,8 +1307,9 @@ export function FloorViewPage() {
                           >
                             <strong>
                               {formatPrice(
-                                selectedBs.order_totals?.[selectedOrder.id] ||
-                                  0,
+                                selectedBs.order_totals?.[
+                                  String(selectedOrder.id)
+                                ] || 0,
                               )}
                             </strong>
                           </div>

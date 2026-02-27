@@ -55,9 +55,20 @@ export function AuthProvider({ children }) {
 
   // Logout: just clear local state — no server call needed
   // The backend 422 happens because /api/auth/logout expects a body it doesn't get
-  const logout = useCallback(() => {
-    localStorage.removeItem("token");
-    setUser(null);
+  const logout = useCallback(async () => {
+    try {
+      const refreshToken = localStorage.getItem("refresh_token");
+      if (refreshToken) {
+        await api.post("/api/auth/logout", { refresh_token: refreshToken });
+      }
+    } catch (e) {
+      // best effort server-side logout
+    } finally {
+      localStorage.removeItem("token");
+      localStorage.removeItem("refresh_token");
+      setUser(null);
+      // 3. Navigation is now handled by the component calling logout
+    }
   }, []);
 
   return (
