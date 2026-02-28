@@ -22,7 +22,15 @@ export default function App() {
         style={{
           width: "100%",
           overflowX: "hidden",
-          ...(isMobile ? { height: "100dvh", overflow: "hidden" } : {}),
+          ...(isMobile
+            ? {
+                position: "fixed",
+                inset: 0,
+                overflow: "hidden",
+                padding: 0,
+                margin: 0,
+              }
+            : {}),
         }}
       >
         <Outlet />

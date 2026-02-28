@@ -65,7 +65,7 @@ export function MobileHub() {
           transition: active
             ? "transform 0.46s cubic-bezier(0.77,0,0.175,1), opacity 0.46s ease"
             : "none",
-          paddingBottom: 88,
+          paddingBottom: "calc(88px + env(safe-area-inset-bottom, 0px))",
         }}
       >
         <HomeScreen onGo={go} />
@@ -86,7 +86,7 @@ export function MobileHub() {
               ...(isExiting ? dirOut(wDir) : !isActive ? dirIn(wDir) : {}),
               transition:
                 "transform 0.46s cubic-bezier(0.77,0,0.175,1), opacity 0.46s ease",
-              paddingBottom: 88,
+              paddingBottom: "calc(88px + env(safe-area-inset-bottom, 0px))",
             }}
           >
             {world === "members" && <MembersScreen onBack={goBack} />}
@@ -280,6 +280,8 @@ function Tile({ color, num, label, name, hint, onClick }) {
       style={{
         background: t.bg,
         border: t.border || "none",
+        borderRadius: 0,
+        boxShadow: "none",
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
@@ -288,6 +290,9 @@ function Tile({ color, num, label, name, hint, onClick }) {
         textAlign: "left",
         filter: pressed ? "brightness(0.88)" : "brightness(1)",
         transition: "filter 0.12s",
+        width: "100%",
+        height: "100%",
+        overflow: "hidden",
       }}
     >
       <div>
@@ -365,24 +370,41 @@ function dirOut(dir) {
 ───────────────────────────────────────── */
 const s = {
   root: {
-    position: "relative",
+    position: "fixed", // fixed not relative — locks to viewport
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     width: "100%",
-    height: "100dvh",
+    height: "100%",
     overflow: "hidden",
     background: "#F7F4EF",
+    // reset globals from index.css that bleed in
+    fontFamily: "Inter, sans-serif",
+    fontSize: 14,
   },
   screen: {
     position: "absolute",
-    inset: 0,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     display: "flex",
     flexDirection: "column",
     background: "#F7F4EF",
+    width: "100%", // explicit — prevents overflow
+    overflowX: "hidden",
   },
   visible: { transform: "translate(0,0) scale(1)", opacity: 1 },
   gone: { display: "none" },
 
   // home
-  home: { display: "flex", flexDirection: "column", height: "100%" },
+  home: {
+    display: "flex",
+    flexDirection: "column",
+    height: "100%",
+    overflowX: "hidden",
+  },
   homeTop: { padding: "52px 24px 28px", flexShrink: 0 },
   lodge: {
     fontFamily: "Playfair Display, serif",
@@ -408,6 +430,7 @@ const s = {
     gap: 3,
     background: "rgba(26,26,26,0.12)",
     borderTop: "2px solid #1a1a1a",
+    overflow: "hidden", // prevent grid from overflowing
   },
 
   // pill backdrop
@@ -417,29 +440,29 @@ const s = {
     zIndex: 20,
   },
 
-  // pill wrap — floats above everything
+  // pill wrap — fixed so Safari chrome doesn't interfere
   pillWrap: {
-    position: "absolute",
-    bottom: 28,
+    position: "fixed",
+    bottom: "env(safe-area-inset-bottom, 24px)", // respects iPhone home bar
     left: "50%",
     transform: "translateX(-50%)",
     zIndex: 30,
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: 0,
+    paddingBottom: 8,
   },
 
   // expanded switcher
   pillExpanded: {
-    background: "rgba(18,16,12,0.88)",
+    background: "rgba(18,16,12,0.92)",
     backdropFilter: "blur(20px)",
     WebkitBackdropFilter: "blur(20px)",
     border: "1px solid rgba(255,255,255,0.08)",
     borderRadius: 20,
     padding: 8,
     display: "flex",
-    gap: 6,
+    gap: 4,
     opacity: 0,
     pointerEvents: "none",
     transform: "translateY(12px) scale(0.92)",
@@ -452,19 +475,25 @@ const s = {
     transform: "translateY(0) scale(1)",
   },
 
-  // world button in expanded
+  // world button in expanded — reset button globals
   pillWorld: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     gap: 6,
-    padding: "10px 12px",
+    padding: "10px 10px",
     borderRadius: 14,
     cursor: "pointer",
     border: "none",
     background: "transparent",
-    minWidth: 68,
+    minWidth: 64,
     transition: "background 0.15s",
+    // reset index.css button styles
+    boxShadow: "none",
+    transform: "none",
+    textTransform: "none",
+    letterSpacing: "normal",
+    color: "inherit",
   },
   pillWorldActive: {
     background: "rgba(255,255,255,0.1)",
@@ -478,6 +507,9 @@ const s = {
     justifyContent: "center",
     fontSize: 14,
     flexShrink: 0,
+    // reset button globals
+    boxShadow: "none",
+    border: "none",
   },
   pillWorldLabel: {
     fontFamily: "'IBM Plex Mono', monospace",
@@ -502,19 +534,27 @@ const s = {
     background: "rgba(255,255,255,0.6)",
   },
 
-  // collapsed pill
+  // collapsed pill — reset button globals
   pillHome: {
     display: "flex",
     alignItems: "center",
     gap: 12,
-    background: "rgba(26,26,26,0.82)",
+    background: "rgba(26,26,26,0.85)",
     backdropFilter: "blur(16px)",
     WebkitBackdropFilter: "blur(16px)",
     border: "1px solid rgba(255,255,255,0.1)",
     borderRadius: 100,
-    padding: "10px 16px 10px 20px",
+    padding: "12px 18px 12px 22px",
     cursor: "pointer",
     whiteSpace: "nowrap",
+    // reset index.css button styles
+    boxShadow: "none",
+    transform: "none",
+    textTransform: "none",
+    letterSpacing: "normal",
+    color: "inherit",
+    fontSize: "inherit",
+    fontWeight: "inherit",
   },
   pillCurrentLabel: {
     fontFamily: "'IBM Plex Mono', monospace",
@@ -527,6 +567,7 @@ const s = {
     width: 1,
     height: 14,
     background: "rgba(255,255,255,0.15)",
+    flexShrink: 0,
   },
   pillLines: {
     display: "flex",
