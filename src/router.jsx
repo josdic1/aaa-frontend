@@ -1,3 +1,4 @@
+// src/router.jsx
 import { Navigate } from "react-router-dom";
 import App from "./App";
 import { AdminRoute } from "./components/AdminRoute";
@@ -27,7 +28,8 @@ function RootIndex() {
     return <Navigate to="/admin" replace />;
   }
 
-  if (window.innerWidth < 768) {
+  // Auto-redirect members on mobile to the hub home screen
+  if (typeof window !== "undefined" && window.innerWidth < 768) {
     return <Navigate to="/mobile" replace />;
   }
 
@@ -45,18 +47,23 @@ export const routes = [
       { path: "menu", element: <MenuPage /> },
       { path: "issues", element: <KnownIssues /> },
 
-      // IMPORTANT: index is NOT wrapped by ProtectedRoute
+      // IMPORTANT: index is NOT wrapped by ProtectedRoute.
       // RootIndex alone decides where "/" should go.
       { index: true, element: <RootIndex /> },
 
       {
         element: <ProtectedRoute />,
         children: [
+          // Mobile hub — fully self-contained, handles its own screens internally.
+          // Does NOT navigate out to desktop routes.
+          { path: "mobile", element: <MobileHub /> },
+
+          // Desktop routes (members, reservations, etc.)
+          // On mobile, users go through /mobile not these paths.
           { path: "home", element: <HomePage /> },
           { path: "members", element: <MembersPage /> },
           { path: "reservations/new", element: <ReservationFormPage /> },
           { path: "reservations/:id", element: <ReservationDetailPage /> },
-          { path: "mobile", element: <MobileHub /> },
         ],
       },
 

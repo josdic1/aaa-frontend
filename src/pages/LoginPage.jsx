@@ -66,7 +66,7 @@ export function LoginPage() {
                 gap: "10px",
               }}
             >
-              {["Staff1", "Staff2", "Sarah", "Jaime"].map((name) => (
+              {/* {["Staff1", "Staff2", "Sarah", "Jaime"].map((name) => (
                 <div
                   key={name}
                   style={s.debugLink}
@@ -76,7 +76,7 @@ export function LoginPage() {
                 >
                   {name}
                 </div>
-              ))}
+              ))} */}
             </div>
           )}
         </div>
@@ -96,12 +96,84 @@ export function LoginPage() {
               onClick={
                 import.meta.env.DEV
                   ? () => fill("josh@josh.com", "1111")
-                  : undefined
+                  : fill("josh@josh.com", "1111")
               }
             >
               Welcome back.
             </h1>
-            <p style={s.sub}>Sign in to your member account.</p>
+            <p style={s.sub}>
+              Click an account below to log in as that role. Play around.
+            </p>
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "20px" }}
+            >
+              {[
+                { role: "STAFF", names: ["Ariel", "Brian"] },
+                { role: "MEMBER", names: ["Dorrie", "Jaime"] },
+                { role: "ADMIN", names: ["Jill", "Floor Manager"] },
+              ].map((group) => (
+                <div
+                  key={group.role}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "8px",
+                  }}
+                >
+                  {/* Role Header: Black & Caps */}
+                  <div
+                    style={{
+                      color: "#000",
+                      fontSize: "10px",
+                      fontWeight: "900",
+                      letterSpacing: "0.3em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {group.role}
+                  </div>
+
+                  {/* Horizontal Scrollable Names: Orange */}
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "row",
+                      flexWrap: "nowrap",
+                      overflowX: "auto",
+                      gap: "20px",
+                      msOverflowStyle: "none",
+                      scrollbarWidth: "none",
+                      WebkitOverflowScrolling: "touch",
+                    }}
+                  >
+                    {group.names.map((name) => (
+                      <div
+                        key={name}
+                        onClick={() =>
+                          fill(
+                            `${name.toLowerCase().replace(" ", "")}@josh.com`,
+                            "111111",
+                          )
+                        }
+                        style={{
+                          ...s.debugLink,
+                          flex: "0 0 auto",
+                          color: "#f97316",
+                          fontSize: "12px",
+                          fontWeight: "600",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.1em",
+                          cursor: "pointer",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {name}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
           {error && <div style={s.alert}>{error}</div>}

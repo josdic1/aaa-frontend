@@ -113,10 +113,12 @@ export function MenuPage() {
       })
       .join("\n\n");
 
-    navigator.clipboard
-      .writeText(text)
-      .then(() => toast.success("Menu copied to clipboard!"))
-      .catch(() => toast.error("Copy failed — check browser permissions."));
+    // Prepend a header for the text message
+    const messageBody = `Abeyton Lodge Menu:\n\n${text}`;
+
+    // Trigger native SMS app
+    // Use ?body= for iOS and &body= for some Android versions; ? works broadly
+    window.location.href = `sms:?body=${encodeURIComponent(messageBody)}`;
   };
 
   return (
