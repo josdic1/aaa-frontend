@@ -18,8 +18,6 @@ export function LoginPage() {
     setError("");
     setLoading(true);
 
-    // Resolve intended destination:
-    // 1. ?from= query param 2. location state 3. default home
     const queryParams = new URLSearchParams(location.search);
     const fromPath =
       queryParams.get("from") || location.state?.from?.pathname || "/";
@@ -39,6 +37,13 @@ export function LoginPage() {
     setPassword(p);
   };
 
+  // Helper to handle the boutique row data
+  const roleGroups = [
+    { role: "STAFF", names: ["Ariel", "Brian"] },
+    { role: "MEMBER", names: ["Dorrie", "Jaime"] },
+    { role: "ADMIN", names: ["Jill", "Floor Manager"] },
+  ];
+
   return (
     <div style={s.page}>
       {/* LEFT SECTION - Branding */}
@@ -55,30 +60,6 @@ export function LoginPage() {
           <div style={s.tagline}>
             Private dining reservations and member services for Abeyton Lodge.
           </div>
-
-          {/* Debug/Staff Links - Only visible in DEV */}
-          {import.meta.env.DEV && (
-            <div
-              style={{
-                marginTop: "20px",
-                display: "flex",
-                flexWrap: "wrap",
-                gap: "10px",
-              }}
-            >
-              {/* {["Staff1", "Staff2", "Sarah", "Jaime"].map((name) => (
-                <div
-                  key={name}
-                  style={s.debugLink}
-                  onClick={() =>
-                    fill(`${name.toLowerCase()}@josh.com`, "111111")
-                  }
-                >
-                  {name}
-                </div>
-              ))} */}
-            </div>
-          )}
         </div>
 
         <div style={s.leftFooter}>
@@ -92,26 +73,23 @@ export function LoginPage() {
         <div style={s.card}>
           <div style={s.cardHeader}>
             <h1
-              style={s.title}
-              onClick={
-                import.meta.env.DEV
-                  ? () => fill("josh@josh.com", "1111")
-                  : fill("josh@josh.com", "1111")
-              }
+              style={{ ...s.title, cursor: "pointer" }}
+              onClick={() => fill("josh@josh.com", "1111")}
             >
               Welcome back.
             </h1>
-            <p style={s.sub}>
-              Click an account below to log in as that role. Play around.
-            </p>
+            <p style={s.sub}>Click an account below to log in as that role.</p>
+
+            {/* BOUTIQUE HORIZONTAL ROWS */}
             <div
-              style={{ display: "flex", flexDirection: "column", gap: "20px" }}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "24px",
+                marginTop: "24px",
+              }}
             >
-              {[
-                { role: "STAFF", names: ["Ariel", "Brian"] },
-                { role: "MEMBER", names: ["Dorrie", "Jaime"] },
-                { role: "ADMIN", names: ["Jill", "Floor Manager"] },
-              ].map((group) => (
+              {roleGroups.map((group) => (
                 <div
                   key={group.role}
                   style={{
@@ -140,10 +118,11 @@ export function LoginPage() {
                       flexDirection: "row",
                       flexWrap: "nowrap",
                       overflowX: "auto",
-                      gap: "20px",
+                      gap: "16px",
                       msOverflowStyle: "none",
                       scrollbarWidth: "none",
                       WebkitOverflowScrolling: "touch",
+                      paddingBottom: "4px",
                     }}
                   >
                     {group.names.map((name) => (
@@ -151,7 +130,7 @@ export function LoginPage() {
                         key={name}
                         onClick={() =>
                           fill(
-                            `${name.toLowerCase().replace(" ", "")}@josh.com`,
+                            `${name.toLowerCase().replace(/\s/g, "")}@josh.com`,
                             "111111",
                           )
                         }
@@ -159,12 +138,14 @@ export function LoginPage() {
                           ...s.debugLink,
                           flex: "0 0 auto",
                           color: "#f97316",
-                          fontSize: "12px",
-                          fontWeight: "600",
+                          borderColor: "rgba(249, 115, 22, 0.2)",
+                          fontSize: "11px",
+                          fontWeight: "700",
                           textTransform: "uppercase",
-                          letterSpacing: "0.1em",
+                          letterSpacing: "0.15em",
                           cursor: "pointer",
                           whiteSpace: "nowrap",
+                          background: "transparent",
                         }}
                       >
                         {name}
@@ -179,19 +160,45 @@ export function LoginPage() {
           {error && <div style={s.alert}>{error}</div>}
 
           <form onSubmit={handleSubmit}>
-            <div className="field">
-              <label>Email</label>
+            <div className="field" style={{ marginBottom: "16px" }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  marginBottom: "4px",
+                  textTransform: "uppercase",
+                }}
+              >
+                Email
+              </label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  borderRadius: "4px",
+                  border: "1px solid #ddd",
+                }}
               />
             </div>
 
-            <div className="field">
-              <label>Password</label>
+            <div className="field" style={{ marginBottom: "20px" }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  marginBottom: "4px",
+                  textTransform: "uppercase",
+                }}
+              >
+                Password
+              </label>
               <div style={{ position: "relative" }}>
                 <input
                   type={showPwd ? "text" : "password"}
@@ -199,6 +206,12 @@ export function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    borderRadius: "4px",
+                    border: "1px solid #ddd",
+                  }}
                 />
                 <button
                   type="button"
@@ -214,7 +227,17 @@ export function LoginPage() {
               type="submit"
               disabled={loading}
               className="primary"
-              style={{ width: "100%", marginTop: "8px" }}
+              style={{
+                width: "100%",
+                padding: "14px",
+                background: "#000",
+                color: "#fff",
+                fontWeight: 800,
+                textTransform: "uppercase",
+                letterSpacing: "0.1em",
+                border: "none",
+                cursor: "pointer",
+              }}
             >
               {loading ? "Signing in..." : "Sign In"}
             </button>
@@ -228,7 +251,7 @@ export function LoginPage() {
 
           <p style={s.registerLink}>
             Don't have an account?{" "}
-            <Link to="/signup" style={{ fontWeight: 800 }}>
+            <Link to="/signup" style={{ fontWeight: 800, color: "#000" }}>
               Request access
             </Link>
           </p>
@@ -298,11 +321,11 @@ const s = {
   },
   debugLink: {
     fontSize: "12px",
-    color: "rgba(255,255,255,0.4)",
+    color: "rgba(0,0,0,0.4)",
     cursor: "pointer",
-    border: "1px solid rgba(255,255,255,0.1)",
-    padding: "4px 8px",
-    borderRadius: "4px",
+    border: "1px solid rgba(0,0,0,0.1)",
+    padding: "6px 12px",
+    borderRadius: "2px",
   },
   leftFooter: { position: "relative", zIndex: 1, marginTop: "40px" },
   rule: {
@@ -320,23 +343,26 @@ const s = {
   right: {
     display: "flex",
     alignItems: "center",
-    justifyCenter: "center",
+    justifyContent: "center",
     padding: "24px",
-    background: "var(--bg)",
+    background: "#fff",
   },
   card: { width: "100%", maxWidth: "400px" },
   cardHeader: { marginBottom: "36px" },
-  title: { fontSize: "clamp(24px, 6vw, 32px)", marginBottom: "8px" },
-  sub: { fontSize: "14px", color: "var(--muted)", fontWeight: 500 },
+  title: {
+    fontSize: "clamp(24px, 6vw, 32px)",
+    marginBottom: "8px",
+    fontWeight: 900,
+  },
+  sub: { fontSize: "14px", color: "#666", fontWeight: 500 },
   alert: {
     padding: "12px 16px",
-    border: "2px solid var(--red)",
-    borderRadius: "var(--radius-sm)",
+    border: "1px solid #fecaca",
+    borderRadius: "4px",
     background: "#fef2f2",
     color: "#b91c1c",
     fontSize: "13px",
     fontWeight: 600,
-    boxShadow: "4px 4px 0 var(--red)",
     marginBottom: "20px",
   },
   toggleBtn: {
@@ -346,11 +372,9 @@ const s = {
     transform: "translateY(-50%)",
     background: "none",
     border: "none",
-    boxShadow: "none",
-    color: "var(--muted)",
-    fontSize: "11px",
+    color: "#999",
+    fontSize: "10px",
     fontWeight: 800,
-    letterSpacing: "0.05em",
     textTransform: "uppercase",
     padding: "4px",
     cursor: "pointer",
@@ -362,18 +386,18 @@ const s = {
     gap: "12px",
     margin: "28px 0",
   },
-  dividerLine: { flex: 1, height: "2px", background: "var(--border)" },
+  dividerLine: { flex: 1, height: "1px", background: "#eee" },
   dividerText: {
     fontSize: "11px",
     fontWeight: 800,
     letterSpacing: "0.1em",
     textTransform: "uppercase",
-    color: "var(--muted)",
+    color: "#ccc",
   },
   registerLink: {
     textAlign: "center",
     fontSize: "13px",
-    color: "var(--muted)",
+    color: "#666",
     fontWeight: 500,
   },
 };
