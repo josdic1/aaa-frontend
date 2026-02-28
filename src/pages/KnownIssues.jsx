@@ -21,6 +21,7 @@ export function KnownIssues() {
         <li> 9. Staff and Admin don't need MEMBERS page</li>
         <li> 10. Staff and Admin don't need RESERVATIONS page</li>
         <li> 11. Add NEW RESERVATION button to MEMBERS FORM/PAGE</li>
+        <li> 12. Need password change for users</li>
       </ol>
     </>
   );

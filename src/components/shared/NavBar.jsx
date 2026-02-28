@@ -55,9 +55,11 @@ export function NavBar() {
             <Link to="/menu" style={active("/menu")}>
               Menu
             </Link>
-            <Link to="/members" style={active("/members")}>
-              Members
-            </Link>
+            {isMember && (
+              <Link to="/members" style={active("/members")}>
+                Members
+              </Link>
+            )}
             {isStaff && (
               <Link to="/floor" style={active("/floor")}>
                 Floor
