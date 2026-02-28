@@ -1,6 +1,6 @@
 // src/pages/mobile/MobileHub.jsx
 // Self-contained mobile experience. No routing to desktop pages.
-// 4 screens: Book, My Reservations, Members, Messages
+// 5 screens: Book, My Reservations, Order, Members, Messages
 // Big buttons. Nothing moves. Real API calls.
 
 import { useState, useEffect, useCallback } from "react";
@@ -40,11 +40,12 @@ const TODAY = new Date().toISOString().split("T")[0];
 const NAV = [
   { key: "book", label: "Book", icon: "✦" },
   { key: "manage", label: "My Trips", icon: "▦" },
+  { key: "order", label: "Order", icon: "◍" },
   { key: "members", label: "Members", icon: "◉" },
   { key: "messages", label: "Messages", icon: "◈" },
 ];
 
-// ─── Time slots (mirrors ReservationFormPage logic) ───────────────────────────
+// ─── Time slots ───────────────────────────────────────────────────────────────
 
 function getTimeSlots(mealType, dateStr) {
   if (!dateStr) return [];
@@ -88,7 +89,7 @@ function fmtTime(t) {
   return `${hour % 12 === 0 ? 12 : hour % 12}:${m} ${hour < 12 ? "AM" : "PM"}`;
 }
 
-// ─── Root component ────────────────────────────────────────────────────────────
+// ─── Root component ───────────────────────────────────────────────────────────
 
 export function MobileHub() {
   const [screen, setScreen] = useState("book");
@@ -111,10 +112,10 @@ export function MobileHub() {
 
   return (
     <div style={r.root}>
-      {/* ── Main content area ─────────────────── */}
       <div style={r.body}>
         {screen === "book" && <BookScreen />}
         {screen === "manage" && <ManageScreen onDetail={openDetail} />}
+        {screen === "order" && <OrderScreen />}
         {screen === "members" && <MembersScreen />}
         {screen === "messages" && <MessagesScreen />}
         {screen === "detail" && (
@@ -122,13 +123,11 @@ export function MobileHub() {
         )}
       </div>
 
-      {/* ── Pill nav ──────────────────────────── */}
       {pillOpen && (
         <div style={r.backdrop} onClick={() => setPillOpen(false)} />
       )}
 
       <div style={r.pillWrap}>
-        {/* Expanded world switcher */}
         {pillOpen && (
           <div style={r.switcher}>
             {NAV.map((n) => (
@@ -146,8 +145,6 @@ export function MobileHub() {
             ))}
           </div>
         )}
-
-        {/* The pill itself */}
         <button style={r.pill} onClick={() => setPillOpen((o) => !o)}>
           <span style={r.pillIcon}>{activeNav?.icon || "✦"}</span>
           <span style={r.pillLabel}>{activeNav?.label || "Menu"}</span>
@@ -158,14 +155,14 @@ export function MobileHub() {
   );
 }
 
-// ─── Screen: Book a reservation ───────────────────────────────────────────────
+// ─── Screen: Book ─────────────────────────────────────────────────────────────
 
 function BookScreen() {
   const { user } = useAuth();
   const { members, diningRooms, refresh, schema } = useData();
   const MAX_PARTY = schema?._config?.max_party_size ?? 4;
 
-  const [step, setStep] = useState(1); // 1 = when/where, 2 = who, 3 = confirm
+  const [step, setStep] = useState(1);
   const [form, setForm] = useState({
     date: TODAY,
     meal_type: "lunch",
@@ -178,7 +175,6 @@ function BookScreen() {
   const [loading, setLoading] = useState(false);
 
   const set = (f) => (e) => setForm((p) => ({ ...p, [f]: e.target.value }));
-
   const timeSlots = getTimeSlots(form.meal_type, form.date);
   const dinnerUnavailable =
     form.meal_type === "dinner" && timeSlots.length === 0;
@@ -287,7 +283,6 @@ function BookScreen() {
       </div>
 
       <div style={sc.body}>
-        {/* ── Step 1: When & Where ── */}
         {step === 1 && (
           <div style={sc.stepPane}>
             <Field label="Date">
@@ -305,7 +300,6 @@ function BookScreen() {
                 }
               />
             </Field>
-
             <Field label="Meal">
               <div style={inp.row}>
                 {["lunch", "dinner"].map((m) => (
@@ -324,11 +318,9 @@ function BookScreen() {
                 ))}
               </div>
             </Field>
-
             {dinnerUnavailable && (
               <div style={sc.warn}>Dinner is only available Thu – Sat.</div>
             )}
-
             {!dinnerUnavailable && (
               <Field label="Time">
                 <select
@@ -345,7 +337,6 @@ function BookScreen() {
                 </select>
               </Field>
             )}
-
             <Field label="Room (optional)">
               <select
                 style={inp.base}
@@ -360,7 +351,6 @@ function BookScreen() {
                 ))}
               </select>
             </Field>
-
             <Field label="Notes (optional)">
               <input
                 style={inp.base}
@@ -369,7 +359,6 @@ function BookScreen() {
                 onChange={set("notes")}
               />
             </Field>
-
             <BigBtn
               onClick={() => setStep(2)}
               disabled={!form.start_time || dinnerUnavailable}
@@ -379,13 +368,11 @@ function BookScreen() {
           </div>
         )}
 
-        {/* ── Step 2: Who's Coming ── */}
         {step === 2 && (
           <div style={sc.stepPane}>
             <div style={sc.sectionLabel}>
               Party ({attendees.length}/{MAX_PARTY})
             </div>
-
             {attendees.length > 0 && (
               <div style={sc.attendeeList}>
                 {attendees.map((a, i) => (
@@ -406,12 +393,9 @@ function BookScreen() {
                 ))}
               </div>
             )}
-
             {attendees.length < MAX_PARTY && myMembers.length > 0 && (
               <>
-                <div style={sc.sectionLabel} className="mt">
-                  Add from your household
-                </div>
+                <div style={sc.sectionLabel}>Add from your household</div>
                 {myMembers.map((m) => (
                   <button
                     key={m.id}
@@ -424,7 +408,6 @@ function BookScreen() {
                 ))}
               </>
             )}
-
             {attendees.length < MAX_PARTY && (
               <>
                 <div style={sc.sectionLabel}>Add a guest</div>
@@ -442,7 +425,6 @@ function BookScreen() {
                 </div>
               </>
             )}
-
             <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
               <BigBtn ghost onClick={() => setStep(1)}>
                 ← Back
@@ -457,7 +439,6 @@ function BookScreen() {
           </div>
         )}
 
-        {/* ── Step 3: Confirm ── */}
         {step === 3 && (
           <div style={sc.stepPane}>
             <div style={sc.confirmCard}>
@@ -498,7 +479,6 @@ function BookScreen() {
                 </div>
               )}
             </div>
-
             <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
               <BigBtn ghost onClick={() => setStep(2)}>
                 ← Back
@@ -519,7 +499,6 @@ function BookScreen() {
 function ManageScreen({ onDetail }) {
   const { reservations, loading } = useData();
   const [tab, setTab] = useState("upcoming");
-
   const TODAY = new Date().toISOString().split("T")[0];
 
   const filtered = (reservations || [])
@@ -557,17 +536,14 @@ function ManageScreen({ onDetail }) {
           ))}
         </div>
       </div>
-
       <div style={sc.body}>
         {loading && <div style={sc.empty}>Loading...</div>}
-
         {!loading && filtered.length === 0 && (
           <div style={sc.emptyCard}>
             <div style={sc.emptyIcon}>📅</div>
             <div style={sc.emptyText}>No {tab} reservations.</div>
           </div>
         )}
-
         {filtered.map((r) => (
           <button key={r.id} style={sc.resCard} onClick={() => onDetail(r.id)}>
             <div style={sc.resTop}>
@@ -594,7 +570,343 @@ function ManageScreen({ onDetail }) {
   );
 }
 
-// ─── Screen: Reservation Detail ───────────────────────────────────────────────
+// ─── Screen: Order ────────────────────────────────────────────────────────────
+
+function OrderScreen() {
+  const { reservations } = useData();
+  const [selectedRes, setSelectedRes] = useState(null);
+
+  const upcoming = (reservations || [])
+    .filter((r) => r.status !== "cancelled" && r.date >= TODAY)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  if (selectedRes) {
+    return (
+      <OrderBuilder
+        reservation={selectedRes}
+        onBack={() => setSelectedRes(null)}
+      />
+    );
+  }
+
+  return (
+    <div style={sc.root}>
+      <div style={sc.head}>
+        <div style={sc.eyebrow}>Food & Drink</div>
+        <div style={sc.title}>Order</div>
+      </div>
+      <div style={sc.body}>
+        {upcoming.length === 0 && (
+          <div style={sc.emptyCard}>
+            <div style={sc.emptyIcon}>🍽️</div>
+            <div style={sc.emptyText}>
+              No upcoming reservations to order for.
+            </div>
+          </div>
+        )}
+        {upcoming.length > 0 && (
+          <div style={sc.sectionLabel}>Select a reservation to order for:</div>
+        )}
+        {upcoming.map((r) => (
+          <button
+            key={r.id}
+            style={sc.resCard}
+            onClick={() => setSelectedRes(r)}
+          >
+            <div style={sc.resTop}>
+              <span style={{ ...sc.resDot, background: "#2e7d32" }} />
+              <span style={sc.resDate}>{fmtDate(r.date)}</span>
+              <span style={sc.resTime}>{fmtTime(r.start_time)}</span>
+            </div>
+            <div style={sc.resMeal}>
+              {(r.meal_type || "lunch").charAt(0).toUpperCase() +
+                (r.meal_type || "lunch").slice(1)}
+              {r.dining_room?.name ? ` · ${r.dining_room.name}` : ""}
+            </div>
+            <div style={{ ...sc.resStatus, marginTop: 4 }}>Tap to order →</div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function OrderBuilder({ reservation, onBack }) {
+  const { menuItems } = useData();
+  const [attendees, setAttendees] = useState([]);
+  const [selectedAttendee, setSelectedAttendee] = useState(null);
+  const [orders, setOrders] = useState({});
+  const [items, setItems] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(null);
+  const [removing, setRemoving] = useState(null);
+  const [tab, setTab] = useState("all");
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        let data;
+        try {
+          data = await api.get(`/api/reservations/${reservation.id}/bootstrap`);
+        } catch {
+          data = await api.get(`/api/reservations/${reservation.id}`);
+        }
+        const att = data?.attendees || [];
+        setAttendees(att);
+        if (att.length > 0) setSelectedAttendee(att[0]);
+        const orderMap = {};
+        const itemMap = {};
+        await Promise.all(
+          att.map(async (a) => {
+            try {
+              const order = await api.post("/api/orders/ensure", {
+                attendee_id: a.id,
+              });
+              orderMap[a.id] = order;
+              const oi = await api.get(`/api/order-items/by-order/${order.id}`);
+              itemMap[order.id] = oi;
+            } catch (e) {
+              console.error("Order load error", a.id, e);
+            }
+          }),
+        );
+        setOrders(orderMap);
+        setItems(itemMap);
+      } catch {
+        toast.error("Could not load reservation");
+      }
+      setLoading(false);
+    };
+    load();
+  }, [reservation.id]);
+
+  const currentOrder = selectedAttendee ? orders[selectedAttendee.id] : null;
+  const currentItems = currentOrder
+    ? (items[currentOrder.id] || []).filter((i) => i.status !== "cancelled")
+    : [];
+  const isLocked =
+    currentOrder?.status === "fired" || currentOrder?.status === "fulfilled";
+
+  const menu = menuItems || [];
+  const categories = [
+    "all",
+    ...Array.from(new Set(menu.map((m) => m.category).filter(Boolean))),
+  ];
+  const filteredMenu =
+    tab === "all" ? menu : menu.filter((m) => m.category === tab);
+
+  const getQty = (menuItemId) => {
+    const found = currentItems.find((i) => i.menu_item_id === menuItemId);
+    return found ? found.quantity : 0;
+  };
+
+  const addItem = async (menuItem) => {
+    if (!currentOrder || isLocked) return;
+    setAdding(menuItem.id);
+    try {
+      const existing = currentItems.find((i) => i.menu_item_id === menuItem.id);
+      if (existing) {
+        const updated = await api.patch(`/api/order-items/${existing.id}`, {
+          quantity: existing.quantity + 1,
+        });
+        setItems((prev) => ({
+          ...prev,
+          [currentOrder.id]: prev[currentOrder.id].map((i) =>
+            i.id === existing.id ? updated : i,
+          ),
+        }));
+      } else {
+        const created = await api.post(
+          `/api/order-items/by-order/${currentOrder.id}`,
+          { menu_item_id: menuItem.id, quantity: 1, status: "selected" },
+        );
+        setItems((prev) => ({
+          ...prev,
+          [currentOrder.id]: [...(prev[currentOrder.id] || []), created],
+        }));
+      }
+      toast.success(`Added ${menuItem.name}`);
+    } catch (err) {
+      toast.error(err?.detail || "Could not add item");
+    } finally {
+      setAdding(null);
+    }
+  };
+
+  const removeItem = async (orderItem) => {
+    if (!currentOrder || isLocked) return;
+    setRemoving(orderItem.id);
+    try {
+      if (orderItem.quantity > 1) {
+        const updated = await api.patch(`/api/order-items/${orderItem.id}`, {
+          quantity: orderItem.quantity - 1,
+        });
+        setItems((prev) => ({
+          ...prev,
+          [currentOrder.id]: prev[currentOrder.id].map((i) =>
+            i.id === orderItem.id ? updated : i,
+          ),
+        }));
+      } else {
+        await api.delete(`/api/order-items/${orderItem.id}`);
+        setItems((prev) => ({
+          ...prev,
+          [currentOrder.id]: prev[currentOrder.id].filter(
+            (i) => i.id !== orderItem.id,
+          ),
+        }));
+      }
+    } catch (err) {
+      toast.error(err?.detail || "Could not remove item");
+    } finally {
+      setRemoving(null);
+    }
+  };
+
+  const totalCents = currentItems.reduce(
+    (s, i) => s + (i.price_cents_snapshot || 0) * i.quantity,
+    0,
+  );
+
+  if (loading) {
+    return (
+      <div style={sc.root}>
+        <div style={sc.head}>
+          <button style={sc.backBtn} onClick={onBack}>
+            ← Order
+          </button>
+          <div style={sc.title}>Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={sc.root}>
+      <div style={sc.head}>
+        <button style={sc.backBtn} onClick={onBack}>
+          ← Order
+        </button>
+        <div style={sc.title}>{fmtDate(reservation.date)}</div>
+        <div style={sc.eyebrow}>{fmtTime(reservation.start_time)}</div>
+        <div style={ob.attendeeRow}>
+          {attendees.map((a) => {
+            const name = a.member?.name || a.guest_name || `Guest #${a.id}`;
+            const ord = orders[a.id];
+            const cnt = ord
+              ? (items[ord.id] || []).filter((i) => i.status !== "cancelled")
+                  .length
+              : 0;
+            const active = selectedAttendee?.id === a.id;
+            return (
+              <button
+                key={a.id}
+                style={{
+                  ...ob.attendeeBtn,
+                  ...(active ? ob.attendeeBtnActive : {}),
+                }}
+                onClick={() => setSelectedAttendee(a)}
+              >
+                <span style={ob.attendeeName}>{name.split(" ")[0]}</span>
+                {cnt > 0 && <span style={ob.attendeeBadge}>{cnt}</span>}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={sc.body}>
+        {isLocked && (
+          <div style={ob.lockedBanner}>
+            🔒 This order has been fired and can no longer be edited.
+          </div>
+        )}
+
+        {currentItems.length > 0 && (
+          <div style={ob.cartSection}>
+            <div style={ob.cartTitle}>
+              Current Order
+              <span style={ob.cartTotal}>${(totalCents / 100).toFixed(2)}</span>
+            </div>
+            {currentItems.map((item) => (
+              <div key={item.id} style={ob.cartRow}>
+                <span style={ob.cartQty}>{item.quantity}×</span>
+                <span style={ob.cartName}>{item.name_snapshot}</span>
+                <span style={ob.cartPrice}>
+                  $
+                  {(
+                    ((item.price_cents_snapshot || 0) * item.quantity) /
+                    100
+                  ).toFixed(2)}
+                </span>
+                {!isLocked && (
+                  <button
+                    style={ob.cartRemove}
+                    onClick={() => removeItem(item)}
+                    disabled={removing === item.id}
+                  >
+                    {removing === item.id ? "..." : "−"}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {categories.length > 1 && (
+          <div style={ob.catScroll}>
+            {categories.map((c) => (
+              <button
+                key={c}
+                style={{ ...ob.catBtn, ...(tab === c ? ob.catBtnActive : {}) }}
+                onClick={() => setTab(c)}
+              >
+                {c.charAt(0).toUpperCase() + c.slice(1)}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div style={ob.menuList}>
+          {filteredMenu.map((m) => {
+            const qty = getQty(m.id);
+            return (
+              <div key={m.id} style={ob.menuCard}>
+                <div style={ob.menuInfo}>
+                  <div style={ob.menuName}>{m.name}</div>
+                  {m.description && (
+                    <div style={ob.menuDesc}>{m.description}</div>
+                  )}
+                  <div style={ob.menuPrice}>
+                    ${(m.price_cents / 100).toFixed(2)}
+                  </div>
+                </div>
+                <div style={ob.menuActions}>
+                  {qty > 0 && (
+                    <span style={ob.menuQtyBadge}>{qty} in order</span>
+                  )}
+                  <button
+                    style={{
+                      ...ob.addBtn,
+                      ...(isLocked ? ob.addBtnDisabled : {}),
+                    }}
+                    onClick={() => addItem(m)}
+                    disabled={!!adding || isLocked}
+                  >
+                    {adding === m.id ? "..." : qty > 0 ? "+1" : "Add"}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Screen: Detail ───────────────────────────────────────────────────────────
 
 function DetailScreen({ id, onBack }) {
   const [data, setData] = useState(null);
@@ -652,9 +964,9 @@ function DetailScreen({ id, onBack }) {
       </div>
     );
 
-  const r = data?.reservation || data || {};
-  const attendees = data?.attendees || r.attendees || [];
-  const messages = data?.messages || r.messages || [];
+  const res = data?.reservation || data || {};
+  const attendees = data?.attendees || res.attendees || [];
+  const messages = data?.messages || res.messages || [];
 
   const STATUS_COLOR = {
     confirmed: "#2e7d32",
@@ -668,9 +980,9 @@ function DetailScreen({ id, onBack }) {
         <button style={sc.backBtn} onClick={onBack}>
           ← My Reservations
         </button>
-        <div style={sc.title}>{fmtDate(r.date)}</div>
+        <div style={sc.title}>{fmtDate(res.date)}</div>
         <div style={sc.eyebrow}>
-          {fmtTime(r.start_time)} · {(r.meal_type || "").toUpperCase()}
+          {fmtTime(res.start_time)} · {(res.meal_type || "").toUpperCase()}
         </div>
         <div
           style={{
@@ -678,19 +990,19 @@ function DetailScreen({ id, onBack }) {
             marginTop: 8,
             padding: "3px 10px",
             borderRadius: 4,
-            background: STATUS_COLOR[r.status] || "#888",
+            background: STATUS_COLOR[res.status] || "#888",
             color: "#fff",
             fontSize: 11,
             fontWeight: 700,
             textTransform: "uppercase",
           }}
         >
-          {r.status}
+          {res.status}
         </div>
       </div>
 
-      <div style={{ ...sc.body, paddingBottom: 0 }}>
-        {/* Attendees */}
+      <div style={{ ...sc.body, paddingBottom: 100 }}>
+        {/* Party */}
         {attendees.length > 0 && (
           <div style={sc.detailSection}>
             <div style={sc.detailSectionTitle}>Party</div>
@@ -710,21 +1022,26 @@ function DetailScreen({ id, onBack }) {
         )}
 
         {/* Room */}
-        {r.dining_room?.name && (
+        {res.dining_room?.name && (
           <div style={sc.detailSection}>
             <div style={sc.detailSectionTitle}>Room</div>
-            <div style={sc.detailRow}>{r.dining_room.name}</div>
+            <div style={sc.detailRow}>{res.dining_room.name}</div>
           </div>
         )}
 
         {/* Notes */}
-        {r.notes && (
+        {res.notes && (
           <div style={sc.detailSection}>
             <div style={sc.detailSectionTitle}>Notes</div>
             <div style={{ ...sc.detailRow, fontStyle: "italic" }}>
-              {r.notes}
+              {res.notes}
             </div>
           </div>
+        )}
+
+        {/* Orders */}
+        {attendees.length > 0 && (
+          <DetailOrderPanel reservationId={id} attendees={attendees} />
         )}
 
         {/* Messages */}
@@ -761,7 +1078,6 @@ function DetailScreen({ id, onBack }) {
               </div>
             );
           })}
-
           <div style={sc.msgRow}>
             <input
               style={{ ...inp.base, flex: 1, marginBottom: 0 }}
@@ -776,6 +1092,241 @@ function DetailScreen({ id, onBack }) {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Detail Order Panel (inline ordering inside Detail screen) ────────────────
+
+function DetailOrderPanel({ reservationId, attendees }) {
+  const { menuItems } = useData();
+  const [orders, setOrders] = useState({});
+  const [items, setItems] = useState({});
+  const [selectedAttendee, setSelectedAttendee] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(null);
+  const [removing, setRemoving] = useState(null);
+  const [showMenu, setShowMenu] = useState(false);
+
+  useEffect(() => {
+    if (!attendees || attendees.length === 0) return;
+    setSelectedAttendee(attendees[0]);
+    const load = async () => {
+      setLoading(true);
+      const orderMap = {};
+      const itemMap = {};
+      await Promise.all(
+        attendees.map(async (a) => {
+          try {
+            const order = await api.post("/api/orders/ensure", {
+              attendee_id: a.id,
+            });
+            orderMap[a.id] = order;
+            const oi = await api.get(`/api/order-items/by-order/${order.id}`);
+            itemMap[order.id] = oi;
+          } catch {}
+        }),
+      );
+      setOrders(orderMap);
+      setItems(itemMap);
+      setLoading(false);
+    };
+    load();
+  }, [attendees]);
+
+  const currentOrder = selectedAttendee ? orders[selectedAttendee.id] : null;
+  const currentItems = currentOrder
+    ? (items[currentOrder.id] || []).filter((i) => i.status !== "cancelled")
+    : [];
+  const isLocked =
+    currentOrder?.status === "fired" || currentOrder?.status === "fulfilled";
+  const totalCents = currentItems.reduce(
+    (s, i) => s + (i.price_cents_snapshot || 0) * i.quantity,
+    0,
+  );
+
+  const addItem = async (menuItem) => {
+    if (!currentOrder || isLocked) return;
+    setAdding(menuItem.id);
+    try {
+      const existing = currentItems.find((i) => i.menu_item_id === menuItem.id);
+      if (existing) {
+        const updated = await api.patch(`/api/order-items/${existing.id}`, {
+          quantity: existing.quantity + 1,
+        });
+        setItems((prev) => ({
+          ...prev,
+          [currentOrder.id]: prev[currentOrder.id].map((i) =>
+            i.id === existing.id ? updated : i,
+          ),
+        }));
+      } else {
+        const created = await api.post(
+          `/api/order-items/by-order/${currentOrder.id}`,
+          { menu_item_id: menuItem.id, quantity: 1, status: "selected" },
+        );
+        setItems((prev) => ({
+          ...prev,
+          [currentOrder.id]: [...(prev[currentOrder.id] || []), created],
+        }));
+      }
+      toast.success(`Added ${menuItem.name}`);
+    } catch (err) {
+      toast.error(err?.detail || "Could not add item");
+    } finally {
+      setAdding(null);
+    }
+  };
+
+  const removeItem = async (orderItem) => {
+    if (!currentOrder || isLocked) return;
+    setRemoving(orderItem.id);
+    try {
+      if (orderItem.quantity > 1) {
+        const updated = await api.patch(`/api/order-items/${orderItem.id}`, {
+          quantity: orderItem.quantity - 1,
+        });
+        setItems((prev) => ({
+          ...prev,
+          [currentOrder.id]: prev[currentOrder.id].map((i) =>
+            i.id === orderItem.id ? updated : i,
+          ),
+        }));
+      } else {
+        await api.delete(`/api/order-items/${orderItem.id}`);
+        setItems((prev) => ({
+          ...prev,
+          [currentOrder.id]: prev[currentOrder.id].filter(
+            (i) => i.id !== orderItem.id,
+          ),
+        }));
+      }
+    } catch (err) {
+      toast.error(err?.detail || "Could not remove");
+    } finally {
+      setRemoving(null);
+    }
+  };
+
+  if (loading)
+    return (
+      <div style={sc.detailSection}>
+        <div style={sc.empty}>Loading orders...</div>
+      </div>
+    );
+
+  return (
+    <div style={sc.detailSection}>
+      <div
+        style={{
+          ...sc.detailSectionTitle,
+          display: "flex",
+          justifyContent: "space-between",
+        }}
+      >
+        <span>Orders</span>
+        {totalCents > 0 && (
+          <span style={{ fontWeight: 700, color: "#1a1a1a" }}>
+            ${(totalCents / 100).toFixed(2)}
+          </span>
+        )}
+      </div>
+
+      <div style={ob.attendeeRow}>
+        {attendees.map((a) => {
+          const name = a.member?.name || a.guest_name || "Guest";
+          const ord = orders[a.id];
+          const cnt = ord
+            ? (items[ord.id] || []).filter((i) => i.status !== "cancelled")
+                .length
+            : 0;
+          const active = selectedAttendee?.id === a.id;
+          return (
+            <button
+              key={a.id}
+              style={{
+                ...ob.attendeeBtn,
+                ...(active ? ob.attendeeBtnActive : {}),
+              }}
+              onClick={() => setSelectedAttendee(a)}
+            >
+              <span style={ob.attendeeName}>{name.split(" ")[0]}</span>
+              {cnt > 0 && <span style={ob.attendeeBadge}>{cnt}</span>}
+            </button>
+          );
+        })}
+      </div>
+
+      {currentItems.length === 0 && !showMenu && (
+        <div style={{ fontSize: 13, color: "#888", padding: "4px 0" }}>
+          No items yet.
+        </div>
+      )}
+
+      {currentItems.map((item) => (
+        <div key={item.id} style={ob.cartRow}>
+          <span style={ob.cartQty}>{item.quantity}×</span>
+          <span style={ob.cartName}>{item.name_snapshot}</span>
+          <span style={ob.cartPrice}>
+            $
+            {(((item.price_cents_snapshot || 0) * item.quantity) / 100).toFixed(
+              2,
+            )}
+          </span>
+          {!isLocked && (
+            <button
+              style={ob.cartRemove}
+              onClick={() => removeItem(item)}
+              disabled={removing === item.id}
+            >
+              {removing === item.id ? "..." : "−"}
+            </button>
+          )}
+        </div>
+      ))}
+
+      {isLocked && (
+        <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>
+          🔒 Order is locked
+        </div>
+      )}
+
+      {!isLocked && (
+        <button
+          style={{
+            ...ob.addBtn,
+            marginTop: 10,
+            width: "100%",
+            padding: "12px",
+            borderRadius: 8,
+          }}
+          onClick={() => setShowMenu((s) => !s)}
+        >
+          {showMenu ? "Hide Menu" : "+ Add Items"}
+        </button>
+      )}
+
+      {showMenu && !isLocked && (
+        <div style={{ marginTop: 10 }}>
+          {(menuItems || []).map((m) => (
+            <div key={m.id} style={{ ...ob.menuCard, marginBottom: 8 }}>
+              <div style={ob.menuInfo}>
+                <div style={ob.menuName}>{m.name}</div>
+                <div style={ob.menuPrice}>
+                  ${(m.price_cents / 100).toFixed(2)}
+                </div>
+              </div>
+              <button
+                style={ob.addBtn}
+                onClick={() => addItem(m)}
+                disabled={!!adding}
+              >
+                {adding === m.id ? "..." : "Add"}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -876,7 +1427,6 @@ function MembersScreen() {
         <div style={sc.eyebrow}>Household</div>
         <div style={sc.title}>Members</div>
       </div>
-
       <div style={sc.body}>
         {(members || []).length === 0 && !showForm && (
           <div style={sc.emptyCard}>
@@ -884,7 +1434,6 @@ function MembersScreen() {
             <div style={sc.emptyText}>No household members yet.</div>
           </div>
         )}
-
         {(members || []).map((m) => (
           <div key={m.id} style={sc.memberCard}>
             <div style={sc.memberTop}>
@@ -937,9 +1486,7 @@ function MembersScreen() {
             )}
           </div>
         ))}
-
         {!showForm && <BigBtn onClick={openNew}>+ Add Household Member</BigBtn>}
-
         {showForm && (
           <div style={sc.formCard}>
             <div style={sc.formTitle}>
@@ -1200,7 +1747,6 @@ function BigBtn({ onClick, disabled, children, ghost }) {
         cursor: disabled ? "not-allowed" : "pointer",
         marginBottom: 8,
         letterSpacing: "0.01em",
-        // reset global styles
         boxShadow: "none",
         textTransform: "none",
         boxSizing: "border-box",
@@ -1213,7 +1759,6 @@ function BigBtn({ onClick, disabled, children, ghost }) {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-// Root layout
 const r = {
   root: {
     position: "fixed",
@@ -1228,7 +1773,7 @@ const r = {
     flex: 1,
     overflowY: "auto",
     WebkitOverflowScrolling: "touch",
-    paddingBottom: 100, // space for pill
+    paddingBottom: 100,
   },
   backdrop: { position: "fixed", inset: 0, zIndex: 40 },
   pillWrap: {
@@ -1264,7 +1809,6 @@ const r = {
     background: "transparent",
     cursor: "pointer",
     minWidth: 64,
-    // global resets
     boxShadow: "none",
     textTransform: "none",
     letterSpacing: "normal",
@@ -1291,7 +1835,6 @@ const r = {
     border: "1px solid rgba(255,255,255,0.1)",
     boxShadow: "0 6px 24px rgba(0,0,0,0.35)",
     cursor: "pointer",
-    // global resets
     boxSizing: "border-box",
     textTransform: "none",
     letterSpacing: "normal",
@@ -1312,13 +1855,8 @@ const r = {
   pillCaret: { fontSize: 9, color: "rgba(255,255,255,0.3)" },
 };
 
-// Screen-level styles
 const sc = {
-  root: {
-    display: "flex",
-    flexDirection: "column",
-    minHeight: "100%",
-  },
+  root: { display: "flex", flexDirection: "column", minHeight: "100%" },
   head: {
     padding: "52px 20px 20px",
     background: "#fff",
@@ -1370,12 +1908,7 @@ const sc = {
     color: "rgba(255,255,255,0.7)",
     textAlign: "center",
   },
-  body: {
-    flex: 1,
-    padding: "20px",
-    display: "flex",
-    flexDirection: "column",
-  },
+  body: { flex: 1, padding: "20px", display: "flex", flexDirection: "column" },
   stepPane: { display: "flex", flexDirection: "column" },
   warn: {
     background: "#fff3cd",
@@ -1546,7 +2079,6 @@ const sc = {
   },
   emptyIcon: { fontSize: 40, marginBottom: 12 },
   emptyText: { fontSize: 15, color: "#888" },
-  // Members
   memberCard: {
     background: "#fff",
     borderRadius: 10,
@@ -1635,7 +2167,6 @@ const sc = {
     border: "1.5px solid #1B2D45",
     color: "#fff",
   },
-  // Detail + Messages
   backBtn: {
     background: "none",
     border: "none",
@@ -1679,11 +2210,7 @@ const sc = {
     maxWidth: "78%",
     marginBottom: 8,
   },
-  msgRow: {
-    display: "flex",
-    gap: 8,
-    marginTop: 8,
-  },
+  msgRow: { display: "flex", gap: 8, marginTop: 8 },
   sendBtn: {
     padding: "14px 18px",
     borderRadius: 8,
@@ -1699,7 +2226,6 @@ const sc = {
   },
 };
 
-// Input styles
 const inp = {
   base: {
     width: "100%",
@@ -1715,7 +2241,6 @@ const inp = {
     fontFamily: "-apple-system, sans-serif",
     WebkitAppearance: "none",
     appearance: "none",
-    // reset globals
     boxShadow: "none",
   },
   row: { display: "flex", gap: 8 },
@@ -1738,4 +2263,174 @@ const inp = {
     border: "1.5px solid #1B2D45",
     color: "#fff",
   },
+};
+
+// Order builder styles
+const ob = {
+  attendeeRow: { display: "flex", gap: 6, marginTop: 12, flexWrap: "wrap" },
+  attendeeBtn: {
+    display: "flex",
+    alignItems: "center",
+    gap: 5,
+    padding: "7px 12px",
+    borderRadius: 20,
+    border: "1.5px solid #ddd",
+    background: "#f8f7f5",
+    fontSize: 12,
+    fontWeight: 700,
+    cursor: "pointer",
+    boxShadow: "none",
+    textTransform: "none",
+    letterSpacing: "normal",
+    color: "#555",
+  },
+  attendeeBtnActive: {
+    background: "#1B2D45",
+    border: "1.5px solid #1B2D45",
+    color: "#fff",
+  },
+  attendeeName: { fontSize: 12 },
+  attendeeBadge: {
+    background: "#c8783c",
+    color: "#fff",
+    borderRadius: 10,
+    padding: "1px 6px",
+    fontSize: 10,
+    fontWeight: 800,
+  },
+  lockedBanner: {
+    background: "#fff3cd",
+    border: "1px solid #ffc107",
+    borderRadius: 8,
+    padding: "12px 14px",
+    fontSize: 13,
+    color: "#856404",
+    margin: "0 0 12px 0",
+  },
+  cartSection: {
+    background: "#fff",
+    border: "1px solid #e8e5e0",
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 12,
+  },
+  cartTitle: {
+    fontSize: 12,
+    fontWeight: 800,
+    textTransform: "uppercase",
+    letterSpacing: "0.06em",
+    color: "#888",
+    marginBottom: 10,
+    display: "flex",
+    justifyContent: "space-between",
+  },
+  cartTotal: { color: "#1a1a1a", fontSize: 14 },
+  cartRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "8px 0",
+    borderTop: "1px solid #f0ede8",
+  },
+  cartQty: { fontSize: 13, color: "#888", width: 24, flexShrink: 0 },
+  cartName: { fontSize: 14, fontWeight: 600, flex: 1, color: "#1a1a1a" },
+  cartPrice: { fontSize: 13, color: "#555", flexShrink: 0 },
+  cartRemove: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    border: "1.5px solid #ddd",
+    background: "#fff",
+    color: "#c0392b",
+    fontSize: 16,
+    fontWeight: 700,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    boxShadow: "none",
+    flexShrink: 0,
+  },
+  catScroll: {
+    display: "flex",
+    gap: 6,
+    overflowX: "auto",
+    paddingBottom: 8,
+    marginBottom: 4,
+    WebkitOverflowScrolling: "touch",
+    scrollbarWidth: "none",
+  },
+  catBtn: {
+    flexShrink: 0,
+    padding: "7px 14px",
+    borderRadius: 20,
+    border: "1.5px solid #ddd",
+    background: "#f8f7f5",
+    fontSize: 12,
+    fontWeight: 700,
+    cursor: "pointer",
+    boxShadow: "none",
+    textTransform: "none",
+    color: "#555",
+    whiteSpace: "nowrap",
+  },
+  catBtnActive: {
+    background: "#1B2D45",
+    border: "1.5px solid #1B2D45",
+    color: "#fff",
+  },
+  menuList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+    paddingBottom: 100,
+  },
+  menuCard: {
+    background: "#fff",
+    border: "1px solid #e8e5e0",
+    borderRadius: 10,
+    padding: "14px 16px",
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+  },
+  menuInfo: { flex: 1 },
+  menuName: {
+    fontSize: 15,
+    fontWeight: 700,
+    color: "#1a1a1a",
+    marginBottom: 2,
+  },
+  menuDesc: { fontSize: 12, color: "#888", marginBottom: 4, lineHeight: 1.4 },
+  menuPrice: { fontSize: 13, fontWeight: 700, color: "#1B2D45" },
+  menuActions: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-end",
+    gap: 4,
+    flexShrink: 0,
+  },
+  menuQtyBadge: {
+    fontSize: 10,
+    fontWeight: 700,
+    color: "#c8783c",
+    background: "#fef3c7",
+    padding: "2px 7px",
+    borderRadius: 10,
+    whiteSpace: "nowrap",
+  },
+  addBtn: {
+    padding: "9px 16px",
+    borderRadius: 8,
+    background: "#1B2D45",
+    color: "#fff",
+    border: "none",
+    fontSize: 13,
+    fontWeight: 700,
+    cursor: "pointer",
+    boxShadow: "none",
+    textTransform: "none",
+    whiteSpace: "nowrap",
+  },
+  addBtnDisabled: { background: "#ccc", cursor: "not-allowed" },
 };
