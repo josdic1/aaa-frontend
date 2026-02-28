@@ -16,6 +16,7 @@ import { AdminOverlord } from "./pages/AdminOverlord";
 import { useAuth } from "./hooks/useAuth";
 import { KnownIssues } from "./pages/KnownIssues";
 import { CalendarPage } from "./pages/CalendarPage";
+import { MobileHub } from "./pages/mobile/MobileHub";
 
 function RootIndex() {
   const { user } = useAuth();
@@ -24,6 +25,10 @@ function RootIndex() {
 
   if (user.role === "admin" || user.role === "staff") {
     return <Navigate to="/admin" replace />;
+  }
+
+  if (window.innerWidth < 768) {
+    return <Navigate to="/mobile" replace />;
   }
 
   return <HomePage />;
@@ -51,6 +56,7 @@ export const routes = [
           { path: "members", element: <MembersPage /> },
           { path: "reservations/new", element: <ReservationFormPage /> },
           { path: "reservations/:id", element: <ReservationDetailPage /> },
+          { path: "mobile", element: <MobileHub /> },
         ],
       },
 
