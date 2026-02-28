@@ -41,7 +41,7 @@ export function LoginPage() {
   const roleGroups = [
     { role: "STAFF", names: ["Ariel", "Brian"] },
     { role: "MEMBER", names: ["Dorrie", "Jaime"] },
-    { role: "ADMIN", names: ["Jill", "Floor Manager"] },
+    { role: "ADMIN", names: ["Jill", "Manager"] },
   ];
 
   return (
@@ -130,7 +130,7 @@ export function LoginPage() {
                         key={name}
                         onClick={() =>
                           fill(
-                            `${name.toLowerCase().replace(/\s/g, "")}@josh.com`,
+                            `${name.toLowerCase().replace(/\s/g, "")}@demo.com`,
                             "111111",
                           )
                         }
