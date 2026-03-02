@@ -131,7 +131,7 @@ export function LoginPage() {
                         onClick={() =>
                           fill(
                             `${name.toLowerCase().replace(/\s/g, "")}@demo.com`,
-                            "1111",
+                            "111111",
                           )
                         }
                         style={{
