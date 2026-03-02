@@ -7,6 +7,11 @@ import { api } from "../utils/api";
 import { ReservationThermometer } from "../components/ReservationThermometer";
 import { DIETARY_OPTIONS } from "../constants/dietary";
 import { formatPrice, formatTime } from "../utils/format";
+import {
+  groupMenuItems,
+  SECTION_ORDER,
+  SECTION_TITLES,
+} from "../utils/menuSections";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8080";
 
@@ -17,6 +22,168 @@ const ALLOWED_ROOMS = [
   "Living Room",
   "Pool",
 ];
+
+// ─── MenuPicker ───────────────────────────────────────────────────────────────
+// Reusable tabbed menu picker. Replaces the flat "Add Items" grid everywhere.
+
+function MenuPicker({ menuItems, onAdd }) {
+  const [activeSection, setActiveSection] = useState("all");
+
+  const active = (menuItems || []).filter((m) => m.is_active);
+  const grouped = groupMenuItems(active);
+  const visibleSections = SECTION_ORDER.filter(
+    (k) => (grouped[k] || []).length > 0,
+  );
+  const itemsToShow =
+    activeSection === "all" ? active : grouped[activeSection] || [];
+
+  return (
+    <div style={mp.wrap}>
+      {/* Tab strip */}
+      <div style={mp.tabRow}>
+        <button
+          style={{
+            ...mp.tab,
+            ...(activeSection === "all" ? mp.tabActive : {}),
+          }}
+          onClick={() => setActiveSection("all")}
+        >
+          All
+        </button>
+        {visibleSections.map((k) => (
+          <button
+            key={k}
+            style={{ ...mp.tab, ...(activeSection === k ? mp.tabActive : {}) }}
+            onClick={() => setActiveSection(k)}
+          >
+            {SECTION_TITLES[k]}
+          </button>
+        ))}
+      </div>
+
+      {/* Items */}
+      <div style={mp.grid}>
+        {itemsToShow.map((menuItem) => (
+          <button
+            key={menuItem.id}
+            type="button"
+            onClick={() => onAdd(menuItem.id)}
+            style={mp.btn}
+          >
+            <div style={{ fontWeight: 700, fontSize: "12px" }}>
+              {menuItem.name}
+            </div>
+            <div style={{ fontSize: "11px", opacity: 0.6, marginTop: 2 }}>
+              {formatPrice(menuItem.price_cents)}
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const mp = {
+  wrap: { borderTop: "1px solid var(--border-dim)", paddingTop: "14px" },
+  tabRow: {
+    display: "flex",
+    gap: 5,
+    overflowX: "auto",
+    WebkitOverflowScrolling: "touch",
+    scrollbarWidth: "none",
+    paddingBottom: 10,
+    marginBottom: 10,
+  },
+  tab: {
+    flexShrink: 0,
+    padding: "5px 12px",
+    fontSize: "10px",
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: "0.06em",
+    border: "1.5px solid var(--border-dim)",
+    borderRadius: "2px",
+    background: "white",
+    color: "var(--muted)",
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+    boxShadow: "none",
+  },
+  tabActive: {
+    background: "var(--accent)",
+    borderColor: "var(--accent)",
+    color: "#fff",
+  },
+  grid: { display: "flex", flexWrap: "wrap", gap: "8px" },
+  btn: {
+    padding: "8px 14px",
+    background: "white",
+    border: "2px solid var(--border)",
+    borderRadius: "var(--radius-sm)",
+    cursor: "pointer",
+    boxShadow: "2px 2px 0 var(--border)",
+    textAlign: "left",
+    color: "var(--text)",
+    boxSizing: "border-box",
+  },
+};
+
+// ─── MenuPickerPanel ──────────────────────────────────────────────────────────
+// Vertical version for the side panel in TableStatusView (narrower, stacked).
+
+function MenuPickerPanel({ menuItems, onAdd }) {
+  const [activeSection, setActiveSection] = useState("all");
+
+  const active = (menuItems || []).filter((m) => m.is_active);
+  const grouped = groupMenuItems(active);
+  const visibleSections = SECTION_ORDER.filter(
+    (k) => (grouped[k] || []).length > 0,
+  );
+  const itemsToShow =
+    activeSection === "all" ? active : grouped[activeSection] || [];
+
+  return (
+    <div>
+      <div style={mp.tabRow}>
+        <button
+          style={{
+            ...mp.tab,
+            ...(activeSection === "all" ? mp.tabActive : {}),
+          }}
+          onClick={() => setActiveSection("all")}
+        >
+          All
+        </button>
+        {visibleSections.map((k) => (
+          <button
+            key={k}
+            style={{ ...mp.tab, ...(activeSection === k ? mp.tabActive : {}) }}
+            onClick={() => setActiveSection(k)}
+          >
+            {SECTION_TITLES[k]}
+          </button>
+        ))}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+        {itemsToShow.map((menuItem) => (
+          <button
+            key={menuItem.id}
+            type="button"
+            onClick={() => onAdd(menuItem.id)}
+            style={s.panelMenuBtn}
+          >
+            <span>{menuItem.name}</span>
+            <span style={{ fontWeight: 900 }}>
+              {formatPrice(menuItem.price_cents)}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
 
 export function ReservationDetailPage() {
   const { id } = useParams();
@@ -135,10 +302,8 @@ export function ReservationDetailPage() {
 
   const openChit = (orderId) => {
     const token = localStorage.getItem("token");
-    // Appending the token directly to the URL so the new tab is authenticated
-    const url = `${API_BASE}/api/orders/${orderId}/chit?token=${token}`;
     window.open(
-      `${API_BASE}/api/orders/${selectedOrder.id}/chit?token=${localStorage.getItem("token")}`,
+      `${API_BASE}/api/orders/${orderId}/chit?token=${token}`,
       "_blank",
     );
   };
@@ -232,7 +397,6 @@ export function ReservationDetailPage() {
             <span className="muted" style={{ fontSize: "11px" }}>
               #{reservation.id}
             </span>
-
             {reservation.dining_room_id && (
               <span className="muted" style={{ fontSize: "11px" }}>
                 📍{" "}
@@ -247,7 +411,6 @@ export function ReservationDetailPage() {
               {reservation.notes}
             </p>
           )}
-
           {!isCancelled && (
             <RoomPreferenceEditor
               reservation={reservation}
@@ -255,7 +418,6 @@ export function ReservationDetailPage() {
               onUpdated={fetchBootstrap}
             />
           )}
-
           <div
             style={{
               display: "flex",
@@ -290,7 +452,6 @@ export function ReservationDetailPage() {
             )}
           </div>
         </div>
-
         <div style={{ textAlign: "right" }}>
           <div className="muted" style={{ fontSize: "12px" }}>
             Est. Total
@@ -446,28 +607,14 @@ export function ReservationDetailPage() {
                   </div>
                 )}
 
+                {/* ── Categorized menu picker replaces the old flat grid ── */}
                 {!isLocked && order && (
-                  <div style={s.menuSection}>
+                  <div style={{ marginTop: "12px" }}>
                     <div style={s.menuTitle}>Add Items</div>
-                    <div style={s.menuGrid}>
-                      {menuItems
-                        .filter((m) => m.is_active)
-                        .map((menuItem) => (
-                          <button
-                            key={menuItem.id}
-                            type="button"
-                            onClick={() => addItem(order.id, menuItem.id)}
-                            style={s.menuBtn}
-                          >
-                            <div style={{ fontWeight: 700 }}>
-                              {menuItem.name}
-                            </div>
-                            <div style={{ fontSize: "11px", opacity: 0.7 }}>
-                              {formatPrice(menuItem.price_cents)}
-                            </div>
-                          </button>
-                        ))}
-                    </div>
+                    <MenuPicker
+                      menuItems={menuItems}
+                      onAdd={(menuItemId) => addItem(order.id, menuItemId)}
+                    />
                   </div>
                 )}
 
@@ -556,6 +703,8 @@ export function ReservationDetailPage() {
   );
 }
 
+// ─── TableStatusView ──────────────────────────────────────────────────────────
+
 function TableStatusView({
   attendees,
   orders,
@@ -610,7 +759,6 @@ function TableStatusView({
                 : items.length === 0
                   ? "#c0392b"
                   : "#c8783c";
-
             return (
               <button
                 key={attendee.id}
@@ -843,28 +991,14 @@ function TableStatusView({
             )}
           </div>
 
+          {/* ── Categorized picker in side panel ── */}
           {!isLocked && selectedOrder && (
             <div>
               <div style={s.panelLabel}>Add Items</div>
-              <div
-                style={{ display: "flex", flexDirection: "column", gap: "6px" }}
-              >
-                {menuItems
-                  .filter((m) => m.is_active)
-                  .map((menuItem) => (
-                    <button
-                      key={menuItem.id}
-                      type="button"
-                      onClick={() => onAddItem(selectedOrder.id, menuItem.id)}
-                      style={s.panelMenuBtn}
-                    >
-                      <span>{menuItem.name}</span>
-                      <span style={{ fontWeight: 900 }}>
-                        {formatPrice(menuItem.price_cents)}
-                      </span>
-                    </button>
-                  ))}
-              </div>
+              <MenuPickerPanel
+                menuItems={menuItems}
+                onAdd={(menuItemId) => onAddItem(selectedOrder.id, menuItemId)}
+              />
             </div>
           )}
 
@@ -896,6 +1030,8 @@ function TableStatusView({
   );
 }
 
+// ─── AttendeeManager ──────────────────────────────────────────────────────────
+
 function AttendeeManager({
   reservation,
   attendees,
@@ -921,17 +1057,14 @@ function AttendeeManager({
     setEditingId(attendee.id);
     setEditDiet([...(attendee.dietary_restrictions || [])]);
   };
-
   const cancelEdit = () => {
     setEditingId(null);
     setEditDiet([]);
   };
-
-  const toggleDiet = (val) => {
+  const toggleDiet = (val) =>
     setEditDiet((prev) =>
       prev.includes(val) ? prev.filter((d) => d !== val) : [...prev, val],
     );
-  };
 
   const saveDiet = async (attendeeId) => {
     setSaving(true);
@@ -1233,6 +1366,8 @@ function AttendeeManager({
   );
 }
 
+// ─── RoomPreferenceEditor ─────────────────────────────────────────────────────
+
 function RoomPreferenceEditor({ reservation, diningRooms, onUpdated }) {
   const [editing, setEditing] = useState(false);
   const [roomId, setRoomId] = useState(
@@ -1333,6 +1468,8 @@ function RoomPreferenceEditor({ reservation, diningRooms, onUpdated }) {
   );
 }
 
+// ─── MessageComposer ──────────────────────────────────────────────────────────
+
 function MessageComposer({ reservationId, onSent }) {
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
@@ -1369,6 +1506,8 @@ function MessageComposer({ reservationId, onSent }) {
     </div>
   );
 }
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const s = {
   header: {
@@ -1507,26 +1646,13 @@ const s = {
     cursor: "pointer",
     padding: "0",
   },
-  menuSection: { borderTop: "1px solid var(--border-dim)", paddingTop: "16px" },
   menuTitle: {
     fontSize: "11px",
     fontWeight: 900,
     textTransform: "uppercase",
     letterSpacing: "0.08em",
     color: "var(--muted)",
-    marginBottom: "10px",
-  },
-  menuGrid: { display: "flex", flexWrap: "wrap", gap: "8px" },
-  menuBtn: {
-    padding: "8px 14px",
-    background: "white",
-    border: "2px solid var(--border)",
-    borderRadius: "var(--radius-sm)",
-    cursor: "pointer",
-    boxShadow: "2px 2px 0 var(--border)",
-    textAlign: "left",
-    fontSize: "12px",
-    color: "var(--text)",
+    marginBottom: "8px",
   },
   sectionTitle: {
     fontFamily: "Playfair Display, serif",
@@ -1575,7 +1701,7 @@ const s = {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    justifyCenter: "center",
+    justifyContent: "center",
     transition: "all 0.15s",
   },
   legend: {
@@ -1606,6 +1732,8 @@ const s = {
     background: "white",
     position: "sticky",
     top: "20px",
+    maxHeight: "85vh",
+    overflowY: "auto",
   },
   panelLabel: {
     fontSize: "10px",
