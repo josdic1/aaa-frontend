@@ -457,11 +457,57 @@
           display: none !important;
         }
       }
+      /* RETURN HOME (COVER BUTTON) */
+      .return-home {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+
+        margin: 6px 0 18px; /* sits nicely under label, above H1 */
+        padding: 10px 14px;
+
+        border-radius: 999px;
+        text-decoration: none;
+
+        font-family: "Source Code Pro", monospace;
+        font-size: 10px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+
+        color: rgba(255, 255, 255, 0.85);
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+
+        backdrop-filter: blur(6px);
+        transition:
+          transform 0.15s ease,
+          background 0.15s ease,
+          color 0.15s ease;
+      }
+
+      .return-home:hover {
+        background: rgba(255, 255, 255, 0.14);
+        color: #ffffff;
+        transform: translateY(-1px);
+      }
+
+      .return-home:active {
+        transform: translateY(0);
+      }
+
+      /* Optional: subtle orange accent on focus for accessibility */
+      .return-home:focus-visible {
+        outline: 2px solid rgba(232, 98, 42, 0.75);
+        outline-offset: 3px;
+      }
     </style>
   </head>
   <body>
     <div class="cover">
       <div class="cover-label">Abeyton Lodge · Member Reference</div>
+      <a href="https://abbeyton-lodge.netlify.app" class="return-home">
+        ← Return to Abeyton Lodge
+      </a>
       <h1>Member<br />Quick Guide</h1>
       <p class="cover-sub">
         How to book, order, manage your household, and message staff — from your
