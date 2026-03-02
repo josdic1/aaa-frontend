@@ -1,3 +1,4 @@
+// src/pages/AdminPage.jsx
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useData } from "../hooks/useData";
@@ -6,25 +7,26 @@ import { ReservationThermometer } from "../components/ReservationThermometer";
 import { ReservationDetailModal } from "../components/ReservationEditPanel";
 import { extractError } from "../utils/errors";
 import { formatPrice, formatTime } from "../utils/format";
+import { resStatusColor, orderStatusColor } from "../utils/statusColors";
 
-/**
- * Sanitizes patch data for backend compatibility.
- * Defined outside the component to prevent re-declaration on every render.
- */
 function sanitizeReservationPatch(patch) {
   const out = {};
   for (const [k, v] of Object.entries(patch || {})) {
-    if (k === "date") continue; // backend rejects date on PATCH
+    if (k === "date") continue;
     if (v === "" || v === undefined) continue;
     out[k] = v;
   }
   return out;
 }
 
+// Status filter options shown above the reservation list
+const STATUS_FILTERS = ["all", "confirmed", "draft", "cancelled"];
+
 export function AdminPage() {
   const { diningRooms, tables } = useData();
   const [detailRes, setDetailRes] = useState(null);
   const [tab, setTab] = useState("reservations");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [reservations, setReservations] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [firedOrders, setFiredOrders] = useState([]);
@@ -70,8 +72,10 @@ export function AdminPage() {
 
   const updateStatus = async (reservationId, status) => {
     try {
-      const payload = sanitizeReservationPatch({ status });
-      await api.patch(`/api/admin/reservations/${reservationId}`, payload);
+      await api.patch(
+        `/api/admin/reservations/${reservationId}`,
+        sanitizeReservationPatch({ status }),
+      );
       await load();
       toast.success(`Reservation ${status}`);
     } catch (err) {
@@ -142,15 +146,24 @@ export function AdminPage() {
     }
   };
 
-  const statusColor = {
-    draft: "var(--muted)",
-    confirmed: "var(--green)",
-    cancelled: "var(--red)",
-  };
-
   const activeRooms = (diningRooms || []).filter((r) => r.is_active);
   const tablesInRoom = (roomId) =>
     tables.filter((t) => t.dining_room_id === parseInt(roomId) && t.is_active);
+
+  // Apply status filter to reservation list
+  const filteredReservations =
+    statusFilter === "all"
+      ? reservations
+      : reservations.filter((r) => r.status === statusFilter);
+
+  // Count per status for filter tab badges
+  const statusCounts = STATUS_FILTERS.reduce((acc, s) => {
+    acc[s] =
+      s === "all"
+        ? reservations.length
+        : reservations.filter((r) => r.status === s).length;
+    return acc;
+  }, {});
 
   if (loading)
     return (
@@ -161,6 +174,7 @@ export function AdminPage() {
 
   return (
     <div className="page" style={{ maxWidth: "900px" }}>
+      {/* ── Page header with date nav ── */}
       <div style={s.header}>
         <div>
           <h1 style={{ fontSize: "28px", marginBottom: "4px" }}>Admin</h1>
@@ -210,6 +224,7 @@ export function AdminPage() {
         </div>
       </div>
 
+      {/* ── Main tabs: Reservations / Fired Orders ── */}
       <div style={s.tabs}>
         <button
           style={{ ...s.tab, ...(tab === "reservations" ? s.tabActive : {}) }}
@@ -225,41 +240,167 @@ export function AdminPage() {
         </button>
       </div>
 
+      {/* ── Reservations tab ── */}
       {tab === "reservations" && (
         <div>
-          {reservations.length === 0 && (
+          {/* Status filter strip */}
+          <div style={s.filterStrip}>
+            {STATUS_FILTERS.map((f) => (
+              <button
+                key={f}
+                style={{
+                  ...s.filterBtn,
+                  ...(statusFilter === f
+                    ? {
+                        background:
+                          f === "all" ? "var(--accent)" : resStatusColor(f),
+                        color: "#fff",
+                        border: `1.5px solid ${f === "all" ? "var(--accent)" : resStatusColor(f)}`,
+                      }
+                    : {}),
+                }}
+                onClick={() => setStatusFilter(f)}
+              >
+                {f.charAt(0).toUpperCase() + f.slice(1)}
+                {statusCounts[f] > 0 && (
+                  <span
+                    style={{
+                      ...s.filterCount,
+                      background:
+                        statusFilter === f
+                          ? "rgba(255,255,255,0.25)"
+                          : "var(--border-dim)",
+                      color: statusFilter === f ? "#fff" : "var(--muted)",
+                    }}
+                  >
+                    {statusCounts[f]}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {filteredReservations.length === 0 && (
             <div className="card">
-              <p className="muted">No reservations for {date}.</p>
+              <p className="muted">
+                {statusFilter === "all"
+                  ? `No reservations for ${date}.`
+                  : `No ${statusFilter} reservations for ${date}.`}
+              </p>
             </div>
           )}
-          {reservations.map((res) => {
+
+          {filteredReservations.map((res) => {
             const assignment = getAssignment(res.reservation_id);
+            const statusColor = resStatusColor(res.status);
+
+            // Attendee names from the daily endpoint (may be nested)
+            const attendeeNames = (res.attendees || [])
+              .map((a) => a.member?.name || a.guest_name || "Guest")
+              .filter(Boolean);
+
+            // Order summary from res.orders if present
+            const orders = res.orders || [];
+            const totalItems = orders.reduce(
+              (n, o) => n + (o.items?.length || o.item_count || 0),
+              0,
+            );
+            const hasFired = orders.some((o) => o.status === "fired");
+            const hasFulfilled =
+              orders.every((o) => o.status === "fulfilled") &&
+              orders.length > 0;
+
+            // Room name from preference or table assignment
+            const prefRoom = res.dining_room?.name || null;
+            const assignedTable = assignment
+              ? getTableLabel(assignment.table_id)
+              : null;
+
+            // Unread messages
+            const unreadCount = res.unread_message_count || 0;
+
             return (
-              <div key={res.reservation_id} className="card" style={s.resCard}>
+              <div
+                key={res.reservation_id}
+                className="card"
+                style={{ ...s.resCard, borderLeft: `4px solid ${statusColor}` }}
+              >
+                {/* ── Card header: time + status ── */}
                 <div style={s.resHeader}>
                   <div>
                     <div style={s.resTime}>
                       {formatTime(res.start_time)}
                       {res.end_time ? ` — ${formatTime(res.end_time)}` : ""}
                     </div>
-                    <div
-                      className="muted"
-                      style={{ fontSize: "11px", marginTop: "2px" }}
-                    >
-                      #{res.reservation_id} · {res.party_size} guest
-                      {res.party_size !== 1 ? "s" : ""}
+                    <div style={s.resMeta}>
+                      <span className="muted" style={{ fontSize: "11px" }}>
+                        #{res.reservation_id} · {res.party_size} guest
+                        {res.party_size !== 1 ? "s" : ""}
+                      </span>
+                      {res.meal_type && (
+                        <span style={s.metaChip}>
+                          {res.meal_type.charAt(0).toUpperCase() +
+                            res.meal_type.slice(1)}
+                        </span>
+                      )}
+                      {prefRoom && !assignedTable && (
+                        <span style={s.metaChip}>Pref: {prefRoom}</span>
+                      )}
                     </div>
                   </div>
-                  <span
-                    style={{
-                      ...s.badge,
-                      color: statusColor[res.status] || "var(--muted)",
-                    }}
-                  >
+                  <span style={{ ...s.badge, color: statusColor }}>
                     {res.status}
                   </span>
                 </div>
 
+                {/* ── Attendee names ── */}
+                {attendeeNames.length > 0 && (
+                  <div style={s.attendeeRow}>
+                    <span style={s.attendeeLabel}>Party:</span>
+                    <span style={s.attendeeNames}>
+                      {attendeeNames.join(", ")}
+                    </span>
+                  </div>
+                )}
+
+                {/* ── Info chips: table, order status, messages ── */}
+                <div style={s.infoChips}>
+                  {assignedTable && (
+                    <span style={{ ...s.chip, color: "#1B2D45" }}>
+                      📍 {assignedTable}
+                    </span>
+                  )}
+                  {hasFulfilled && (
+                    <span style={{ ...s.chip, color: "#2e7d32" }}>
+                      ✓ Orders fulfilled
+                    </span>
+                  )}
+                  {!hasFulfilled && hasFired && (
+                    <span style={{ ...s.chip, color: "#6d28d9" }}>
+                      🔥 Orders fired
+                    </span>
+                  )}
+                  {!hasFired && !hasFulfilled && totalItems > 0 && (
+                    <span style={{ ...s.chip, color: "#c8783c" }}>
+                      🍽 {totalItems} item{totalItems !== 1 ? "s" : ""} selected
+                    </span>
+                  )}
+                  {!hasFired &&
+                    !hasFulfilled &&
+                    totalItems === 0 &&
+                    res.status !== "cancelled" && (
+                      <span style={{ ...s.chip, color: "#b45309" }}>
+                        ⚠ No order placed
+                      </span>
+                    )}
+                  {unreadCount > 0 && (
+                    <span style={{ ...s.chip, color: "#1B2D45" }}>
+                      💬 {unreadCount} unread
+                    </span>
+                  )}
+                </div>
+
+                {/* ── Thermometer ── */}
                 <div style={{ padding: "12px 0 4px" }}>
                   <ReservationThermometer
                     reservation={res}
@@ -268,6 +409,7 @@ export function AdminPage() {
                   />
                 </div>
 
+                {/* ── Table assignment row ── */}
                 <div style={s.assignRow}>
                   {assignment ? (
                     <div
@@ -305,24 +447,38 @@ export function AdminPage() {
                   )}
                 </div>
 
+                {/* ── Action buttons ── */}
                 <div style={s.actionRow}>
-                  <button
-                    className="primary"
-                    style={{ fontSize: "12px" }}
-                    onClick={() =>
-                      updateStatus(res.reservation_id, "confirmed")
-                    }
-                  >
-                    Confirm
-                  </button>
-                  <button
-                    style={s.dangerBtn}
-                    onClick={() =>
-                      updateStatus(res.reservation_id, "cancelled")
-                    }
-                  >
-                    Cancel
-                  </button>
+                  {res.status !== "confirmed" && (
+                    <button
+                      className="primary"
+                      style={{ fontSize: "12px" }}
+                      onClick={() =>
+                        updateStatus(res.reservation_id, "confirmed")
+                      }
+                    >
+                      Confirm
+                    </button>
+                  )}
+                  {res.status !== "cancelled" && (
+                    <button
+                      style={s.dangerBtn}
+                      onClick={() =>
+                        updateStatus(res.reservation_id, "cancelled")
+                      }
+                    >
+                      Cancel
+                    </button>
+                  )}
+                  {res.status === "cancelled" && (
+                    <button
+                      className="ghost"
+                      style={{ fontSize: "12px" }}
+                      onClick={() => updateStatus(res.reservation_id, "draft")}
+                    >
+                      Restore Draft
+                    </button>
+                  )}
                   <button
                     className="ghost"
                     style={{ fontSize: "12px", fontWeight: 700 }}
@@ -337,6 +493,7 @@ export function AdminPage() {
         </div>
       )}
 
+      {/* ── Fired Orders tab ── */}
       {tab === "orders" && (
         <div>
           {firedOrders.length === 0 && (
@@ -351,6 +508,16 @@ export function AdminPage() {
                   <div style={{ fontWeight: 900, fontSize: "15px" }}>
                     Order #{order.id}
                   </div>
+                  {order.attendee?.member?.name ||
+                  order.attendee?.guest_name ? (
+                    <div
+                      className="muted"
+                      style={{ fontSize: "12px", marginTop: "2px" }}
+                    >
+                      {order.attendee?.member?.name ||
+                        order.attendee?.guest_name}
+                    </div>
+                  ) : null}
                 </div>
                 <button
                   className="primary"
@@ -360,14 +527,13 @@ export function AdminPage() {
                   ✓ Fulfill
                 </button>
               </div>
-
               {order.items?.length > 0 && (
                 <div style={s.itemList}>
                   {order.items.map((item) => (
                     <div key={item.id} style={s.itemRow}>
                       <span>
-                        {item.name_snapshot}{" "}
-                        {item.quantity > 1 && `x${item.quantity}`}
+                        {item.name_snapshot}
+                        {item.quantity > 1 && ` x${item.quantity}`}
                       </span>
                       <span style={{ fontWeight: 700 }}>
                         {formatPrice(
@@ -383,6 +549,7 @@ export function AdminPage() {
         </div>
       )}
 
+      {/* ── Assign Table modal ── */}
       {assigning && (
         <div style={s.modalOverlay} onClick={() => setAssigning(null)}>
           <div style={s.modal} onClick={(e) => e.stopPropagation()}>
@@ -445,13 +612,14 @@ export function AdminPage() {
           </div>
         </div>
       )}
+
       {detailRes && (
-  <ReservationDetailModal
-    reservationId={detailRes}
-    onClose={() => setDetailRes(null)}
-    onSaved={load}
-  />
-)}
+        <ReservationDetailModal
+          reservationId={detailRes}
+          onClose={() => setDetailRes(null)}
+          onSaved={load}
+        />
+      )}
     </div>
   );
 }
@@ -466,7 +634,7 @@ const s = {
   tabs: {
     display: "flex",
     borderBottom: "2px solid var(--border)",
-    marginBottom: "24px",
+    marginBottom: "16px",
   },
   tab: {
     padding: "8px 20px",
@@ -483,26 +651,113 @@ const s = {
     marginBottom: "-2px",
   },
   tabActive: { color: "var(--text)", borderBottom: "2px solid var(--accent)" },
+
+  // Status filter strip
+  filterStrip: {
+    display: "flex",
+    gap: "6px",
+    marginBottom: "20px",
+    flexWrap: "wrap",
+  },
+  filterBtn: {
+    display: "flex",
+    alignItems: "center",
+    gap: "5px",
+    padding: "5px 12px",
+    fontSize: "11px",
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: "0.06em",
+    border: "1.5px solid var(--border)",
+    borderRadius: "2px",
+    background: "white",
+    color: "var(--muted)",
+    cursor: "pointer",
+    boxShadow: "none",
+    transition: "all 0.1s",
+  },
+  filterCount: {
+    fontSize: "9px",
+    fontWeight: 900,
+    borderRadius: "8px",
+    padding: "1px 5px",
+    minWidth: "16px",
+    textAlign: "center",
+  },
+
   badge: {
     fontSize: "10px",
     fontWeight: 900,
     letterSpacing: "0.08em",
     textTransform: "uppercase",
     padding: "3px 10px",
-    border: "1.5px solid currentColor",
+    borderWidth: "1.5px",
+    borderStyle: "solid",
+    borderColor: "currentColor",
     borderRadius: "2px",
+    flexShrink: 0,
   },
   resCard: { marginBottom: "12px" },
   resHeader: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: "12px",
+    marginBottom: "6px",
   },
   resTime: {
     fontFamily: "Playfair Display, serif",
     fontSize: "20px",
     fontWeight: 900,
+  },
+  resMeta: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    marginTop: "2px",
+    flexWrap: "wrap",
+  },
+  metaChip: {
+    fontSize: "11px",
+    color: "var(--muted)",
+    background: "var(--panel-2)",
+    padding: "1px 6px",
+    borderRadius: "2px",
+    border: "1px solid var(--border-dim)",
+  },
+  attendeeRow: {
+    display: "flex",
+    gap: "5px",
+    alignItems: "baseline",
+    marginBottom: "6px",
+  },
+  attendeeLabel: {
+    fontSize: "10px",
+    fontWeight: 900,
+    textTransform: "uppercase",
+    letterSpacing: "0.06em",
+    color: "var(--muted)",
+    flexShrink: 0,
+  },
+  attendeeNames: {
+    fontSize: "13px",
+    fontWeight: 600,
+    color: "var(--text)",
+  },
+  infoChips: {
+    display: "flex",
+    gap: "6px",
+    flexWrap: "wrap",
+    marginBottom: "8px",
+  },
+  chip: {
+    fontSize: "10px",
+    fontWeight: 700,
+    padding: "2px 8px",
+    borderWidth: "1px",
+    borderStyle: "solid",
+    borderColor: "currentColor",
+    borderRadius: "2px",
+    whiteSpace: "nowrap",
   },
   assignRow: {
     padding: "10px 0",
@@ -510,7 +765,7 @@ const s = {
     borderBottom: "1px solid var(--border-dim)",
     marginBottom: "12px",
   },
-  actionRow: { display: "flex", gap: "8px" },
+  actionRow: { display: "flex", gap: "8px", flexWrap: "wrap" },
   dangerBtn: {
     background: "none",
     border: "1.5px solid var(--red)",
@@ -528,6 +783,14 @@ const s = {
     justifyContent: "space-between",
     alignItems: "flex-start",
     marginBottom: "12px",
+  },
+  itemList: { borderTop: "1px solid var(--border-dim)", paddingTop: "8px" },
+  itemRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    padding: "6px 0",
+    fontSize: "13px",
+    borderBottom: "1px solid var(--border-dim)",
   },
   modalOverlay: {
     position: "fixed",
@@ -551,7 +814,7 @@ const s = {
     fontFamily: "Playfair Display, serif",
     fontSize: "20px",
     fontWeight: 900,
-    marginBottom: "4px",
+    marginBottom: "16px",
   },
   closeBtn: {
     background: "none",
@@ -561,5 +824,7 @@ const s = {
     fontSize: "18px",
     cursor: "pointer",
     padding: 0,
+    float: "right",
+    marginTop: "-32px",
   },
 };

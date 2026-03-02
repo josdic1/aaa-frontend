@@ -1,6 +1,12 @@
+// src/pages/MenuPage.jsx
 import { useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
 import { api } from "../utils/api";
+import {
+  getSectionKey,
+  groupMenuItems,
+  SECTION_ORDER,
+  SECTION_TITLES,
+} from "../utils/menuSections";
 
 const DIETARY_LABELS = {
   vegan: "Vegan",
@@ -18,63 +24,10 @@ const DIETARY_LABELS = {
   sesame_allergy: "No Sesame",
 };
 
-const SECTION_ORDER = [
-  "starters",
-  "salads",
-  "addons",
-  "mains",
-  "hotdogs",
-  "sides",
-  "kids",
-  "desserts",
-  "drinks",
-  "other",
-];
-
-const SECTION_TITLES = {
-  starters: "Starters",
-  salads: "Salads & Bowls",
-  addons: "Add-ons",
-  mains: "Sandwiches & Grill",
-  hotdogs: "Hot Dogs",
-  sides: "Sides",
-  kids: "Kids",
-  desserts: "Desserts",
-  drinks: "Beverages",
-  other: "More",
-};
-
-function getSectionKey(item) {
-  const explicit = (item.category || item.section || "").toLowerCase().trim();
-  if (SECTION_ORDER.includes(explicit)) return explicit;
-
-  const n = (item.name || "").toLowerCase().trim();
-  if (n.startsWith("add ")) return "addons";
-  if (n.includes("kids")) return "kids";
-  if (n.match(/cheese board|burrata|pretzel|mezze|calamari|wings/))
-    return "starters";
-  if (n.match(/salad|bowl/)) return "salads";
-  if (n.includes("hot dog")) return "hotdogs";
-  if (
-    n.match(/cake|blond|churro|brownie|cookie|ice cream|sundae|popsicle|tart/)
-  )
-    return "desserts";
-  if (n.match(/lemonade|iced tea|arnold|water|soda|coffee|tea/))
-    return "drinks";
-  if (n.match(/potato|chips|vegetable|fries|rings|coleslaw/)) return "sides";
-  if (
-    n.match(
-      /sandwich|club|burger|lobster roll|flatbread|steak|quesadilla|chicken/,
-    )
-  )
-    return "mains";
-
-  return "other";
-}
-
 export function MenuPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeSection, setActiveSection] = useState("all");
 
   useEffect(() => {
     api
@@ -86,21 +39,14 @@ export function MenuPage() {
 
   const formatPrice = (cents) => `$${((cents || 0) / 100).toFixed(2)}`;
 
-  const grouped = useMemo(() => {
-    const acc = {};
-    for (const item of items) {
-      const key = getSectionKey(item);
-      (acc[key] ||= []).push(item);
-    }
-    for (const key of Object.keys(acc)) {
-      acc[key].sort((a, b) => (a?.name || "").localeCompare(b?.name || ""));
-    }
-    return acc;
-  }, [items]);
-
+  const grouped = useMemo(() => groupMenuItems(items), [items]);
   const visibleSections = SECTION_ORDER.filter(
     (k) => (grouped[k] || []).length > 0,
   );
+  const sectionsToShow =
+    activeSection === "all"
+      ? visibleSections
+      : visibleSections.filter((k) => k === activeSection);
 
   const handleTextMenu = () => {
     const text = visibleSections
@@ -113,11 +59,7 @@ export function MenuPage() {
       })
       .join("\n\n");
 
-    // Prepend a header for the text message
     const messageBody = `Abeyton Lodge Menu:\n\n${text}`;
-
-    // Trigger native SMS app
-    // Use ?body= for iOS and &body= for some Android versions; ? works broadly
     window.location.href = `sms:?body=${encodeURIComponent(messageBody)}`;
   };
 
@@ -135,9 +77,35 @@ export function MenuPage() {
 
         {loading && <p style={s.muted}>Loading menu...</p>}
 
+        {!loading && visibleSections.length > 0 && (
+          <div style={s.tabStrip}>
+            <button
+              style={{
+                ...s.tabBtn,
+                ...(activeSection === "all" ? s.tabBtnActive : {}),
+              }}
+              onClick={() => setActiveSection("all")}
+            >
+              All
+            </button>
+            {visibleSections.map((k) => (
+              <button
+                key={k}
+                style={{
+                  ...s.tabBtn,
+                  ...(activeSection === k ? s.tabBtnActive : {}),
+                }}
+                onClick={() => setActiveSection(k)}
+              >
+                {SECTION_TITLES[k]}
+              </button>
+            ))}
+          </div>
+        )}
+
         {!loading && items.length > 0 && (
           <div style={s.list}>
-            {visibleSections.map((k) => (
+            {sectionsToShow.map((k) => (
               <div key={k} style={s.section}>
                 <div style={s.sectionTitle}>{SECTION_TITLES[k] || k}</div>
                 {(grouped[k] || []).map((item) => (
@@ -209,6 +177,26 @@ const s = {
     boxShadow: "4px 4px 0 #1a1a18",
     transition: "transform 0.1s",
     outline: "none",
+  },
+  tabStrip: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 24 },
+  tabBtn: {
+    padding: "7px 16px",
+    fontSize: "12px",
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: "0.06em",
+    border: "2px solid #e8e4dc",
+    borderRadius: "2px",
+    background: "#fff",
+    color: "#888",
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+    transition: "all 0.1s",
+  },
+  tabBtnActive: {
+    background: "#1a1a18",
+    border: "2px solid #1a1a18",
+    color: "#fff",
   },
   list: { display: "flex", flexDirection: "column" },
   section: { marginBottom: "18px" },

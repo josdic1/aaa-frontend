@@ -1,13 +1,18 @@
 // src/pages/mobile/MobileHub.jsx
 // Self-contained mobile experience. No routing to desktop pages.
 // 5 screens: Book, My Reservations, Order, Members, Messages
-// Big buttons. Nothing moves. Real API calls.
 
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import { api } from "../../utils/api";
 import { useData } from "../../hooks/useData";
 import { useAuth } from "../../hooks/useAuth";
+import {
+  getSectionKey,
+  groupMenuItems,
+  SECTION_ORDER,
+  SECTION_TITLES,
+} from "../../utils/menuSections";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -59,9 +64,8 @@ function getTimeSlots(mealType, dateStr) {
   const slots = [];
   let [h, m] = start;
   while (h < end[0] || (h === end[0] && m <= end[1])) {
-    const label = `${h % 12 === 0 ? 12 : h % 12}:${m.toString().padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
     slots.push({
-      label,
+      label: `${h % 12 === 0 ? 12 : h % 12}:${m.toString().padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`,
       value: `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`,
     });
     m += 15;
@@ -103,7 +107,6 @@ export function MobileHub() {
     setScreen(key);
     setPillOpen(false);
   };
-
   const openDetail = (id) => {
     setDetailId(id);
     setScreen("detail");
@@ -544,25 +547,29 @@ function ManageScreen({ onDetail }) {
             <div style={sc.emptyText}>No {tab} reservations.</div>
           </div>
         )}
-        {filtered.map((r) => (
-          <button key={r.id} style={sc.resCard} onClick={() => onDetail(r.id)}>
+        {filtered.map((res) => (
+          <button
+            key={res.id}
+            style={sc.resCard}
+            onClick={() => onDetail(res.id)}
+          >
             <div style={sc.resTop}>
               <span
                 style={{
                   ...sc.resDot,
-                  background: STATUS_DOT[r.status] || "#888",
+                  background: STATUS_DOT[res.status] || "#888",
                 }}
               />
-              <span style={sc.resDate}>{fmtDate(r.date)}</span>
-              <span style={sc.resTime}>{fmtTime(r.start_time)}</span>
+              <span style={sc.resDate}>{fmtDate(res.date)}</span>
+              <span style={sc.resTime}>{fmtTime(res.start_time)}</span>
             </div>
             <div style={sc.resMeal}>
-              {(r.meal_type || "lunch").charAt(0).toUpperCase() +
-                (r.meal_type || "lunch").slice(1)}
-              {r.dining_room?.name ? ` · ${r.dining_room.name}` : ""}
+              {(res.meal_type || "lunch").charAt(0).toUpperCase() +
+                (res.meal_type || "lunch").slice(1)}
+              {res.dining_room?.name ? ` · ${res.dining_room.name}` : ""}
             </div>
-            {r.notes && <div style={sc.resNotes}>{r.notes}</div>}
-            <div style={sc.resStatus}>{r.status.toUpperCase()} →</div>
+            {res.notes && <div style={sc.resNotes}>{res.notes}</div>}
+            <div style={sc.resStatus}>{res.status.toUpperCase()} →</div>
           </button>
         ))}
       </div>
@@ -605,23 +612,23 @@ function OrderScreen() {
           </div>
         )}
         {upcoming.length > 0 && (
-          <div style={sc.sectionLabel}>Select a reservation to order for:</div>
+          <div style={sc.sectionLabel}>Select a reservation:</div>
         )}
-        {upcoming.map((r) => (
+        {upcoming.map((res) => (
           <button
-            key={r.id}
+            key={res.id}
             style={sc.resCard}
-            onClick={() => setSelectedRes(r)}
+            onClick={() => setSelectedRes(res)}
           >
             <div style={sc.resTop}>
               <span style={{ ...sc.resDot, background: "#2e7d32" }} />
-              <span style={sc.resDate}>{fmtDate(r.date)}</span>
-              <span style={sc.resTime}>{fmtTime(r.start_time)}</span>
+              <span style={sc.resDate}>{fmtDate(res.date)}</span>
+              <span style={sc.resTime}>{fmtTime(res.start_time)}</span>
             </div>
             <div style={sc.resMeal}>
-              {(r.meal_type || "lunch").charAt(0).toUpperCase() +
-                (r.meal_type || "lunch").slice(1)}
-              {r.dining_room?.name ? ` · ${r.dining_room.name}` : ""}
+              {(res.meal_type || "lunch").charAt(0).toUpperCase() +
+                (res.meal_type || "lunch").slice(1)}
+              {res.dining_room?.name ? ` · ${res.dining_room.name}` : ""}
             </div>
             <div style={{ ...sc.resStatus, marginTop: 4 }}>Tap to order →</div>
           </button>
@@ -630,6 +637,8 @@ function OrderScreen() {
     </div>
   );
 }
+
+// ─── Order Builder ────────────────────────────────────────────────────────────
 
 function OrderBuilder({ reservation, onBack }) {
   const { menuItems } = useData();
@@ -640,7 +649,7 @@ function OrderBuilder({ reservation, onBack }) {
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(null);
   const [removing, setRemoving] = useState(null);
-  const [tab, setTab] = useState("all");
+  const [activeSection, setActiveSection] = useState("all");
 
   useEffect(() => {
     const load = async () => {
@@ -687,14 +696,18 @@ function OrderBuilder({ reservation, onBack }) {
     : [];
   const isLocked =
     currentOrder?.status === "fired" || currentOrder?.status === "fulfilled";
+  const totalCents = currentItems.reduce(
+    (s, i) => s + (i.price_cents_snapshot || 0) * i.quantity,
+    0,
+  );
 
-  const menu = menuItems || [];
-  const categories = [
-    "all",
-    ...Array.from(new Set(menu.map((m) => m.category).filter(Boolean))),
-  ];
-  const filteredMenu =
-    tab === "all" ? menu : menu.filter((m) => m.category === tab);
+  const menu = (menuItems || []).filter((m) => m.is_active);
+  const grouped = groupMenuItems(menu);
+  const visibleSections = SECTION_ORDER.filter(
+    (k) => (grouped[k] || []).length > 0,
+  );
+  const displayedItems =
+    activeSection === "all" ? null : grouped[activeSection] || [];
 
   const getQty = (menuItemId) => {
     const found = currentItems.find((i) => i.menu_item_id === menuItemId);
@@ -764,11 +777,6 @@ function OrderBuilder({ reservation, onBack }) {
     }
   };
 
-  const totalCents = currentItems.reduce(
-    (s, i) => s + (i.price_cents_snapshot || 0) * i.quantity,
-    0,
-  );
-
   if (loading) {
     return (
       <div style={sc.root}>
@@ -808,7 +816,7 @@ function OrderBuilder({ reservation, onBack }) {
                 }}
                 onClick={() => setSelectedAttendee(a)}
               >
-                <span style={ob.attendeeName}>{name.split(" ")[0]}</span>
+                <span>{name.split(" ")[0]}</span>
                 {cnt > 0 && <span style={ob.attendeeBadge}>{cnt}</span>}
               </button>
             );
@@ -823,6 +831,7 @@ function OrderBuilder({ reservation, onBack }) {
           </div>
         )}
 
+        {/* Cart */}
         {currentItems.length > 0 && (
           <div style={ob.cartSection}>
             <div style={ob.cartTitle}>
@@ -854,53 +863,84 @@ function OrderBuilder({ reservation, onBack }) {
           </div>
         )}
 
-        {categories.length > 1 && (
-          <div style={ob.catScroll}>
-            {categories.map((c) => (
-              <button
-                key={c}
-                style={{ ...ob.catBtn, ...(tab === c ? ob.catBtnActive : {}) }}
-                onClick={() => setTab(c)}
-              >
-                {c.charAt(0).toUpperCase() + c.slice(1)}
-              </button>
+        {/* Section tabs */}
+        <div style={ob.catScroll}>
+          <button
+            style={{
+              ...ob.catBtn,
+              ...(activeSection === "all" ? ob.catBtnActive : {}),
+            }}
+            onClick={() => setActiveSection("all")}
+          >
+            All
+          </button>
+          {visibleSections.map((k) => (
+            <button
+              key={k}
+              style={{
+                ...ob.catBtn,
+                ...(activeSection === k ? ob.catBtnActive : {}),
+              }}
+              onClick={() => setActiveSection(k)}
+            >
+              {SECTION_TITLES[k]}
+            </button>
+          ))}
+        </div>
+
+        {/* Menu — grouped with headers when "all", flat list when filtered */}
+        {activeSection === "all" ? (
+          visibleSections.map((k) => (
+            <div key={k}>
+              <div style={ob.sectionHeader}>{SECTION_TITLES[k]}</div>
+              {(grouped[k] || []).map((m) => (
+                <MenuItemRow
+                  key={m.id}
+                  item={m}
+                  qty={getQty(m.id)}
+                  onAdd={() => addItem(m)}
+                  adding={adding === m.id}
+                  isLocked={isLocked}
+                />
+              ))}
+            </div>
+          ))
+        ) : (
+          <div style={{ paddingBottom: 100 }}>
+            {displayedItems.map((m) => (
+              <MenuItemRow
+                key={m.id}
+                item={m}
+                qty={getQty(m.id)}
+                onAdd={() => addItem(m)}
+                adding={adding === m.id}
+                isLocked={isLocked}
+              />
             ))}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
 
-        <div style={ob.menuList}>
-          {filteredMenu.map((m) => {
-            const qty = getQty(m.id);
-            return (
-              <div key={m.id} style={ob.menuCard}>
-                <div style={ob.menuInfo}>
-                  <div style={ob.menuName}>{m.name}</div>
-                  {m.description && (
-                    <div style={ob.menuDesc}>{m.description}</div>
-                  )}
-                  <div style={ob.menuPrice}>
-                    ${(m.price_cents / 100).toFixed(2)}
-                  </div>
-                </div>
-                <div style={ob.menuActions}>
-                  {qty > 0 && (
-                    <span style={ob.menuQtyBadge}>{qty} in order</span>
-                  )}
-                  <button
-                    style={{
-                      ...ob.addBtn,
-                      ...(isLocked ? ob.addBtnDisabled : {}),
-                    }}
-                    onClick={() => addItem(m)}
-                    disabled={!!adding || isLocked}
-                  >
-                    {adding === m.id ? "..." : qty > 0 ? "+1" : "Add"}
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+function MenuItemRow({ item, qty, onAdd, adding, isLocked }) {
+  return (
+    <div style={ob.menuCard}>
+      <div style={ob.menuInfo}>
+        <div style={ob.menuName}>{item.name}</div>
+        {item.description && <div style={ob.menuDesc}>{item.description}</div>}
+        <div style={ob.menuPrice}>${(item.price_cents / 100).toFixed(2)}</div>
+      </div>
+      <div style={ob.menuActions}>
+        {qty > 0 && <span style={ob.menuQtyBadge}>{qty} in order</span>}
+        <button
+          style={{ ...ob.addBtn, ...(isLocked ? ob.addBtnDisabled : {}) }}
+          onClick={onAdd}
+          disabled={adding || isLocked}
+        >
+          {adding ? "..." : qty > 0 ? "+1" : "Add"}
+        </button>
       </div>
     </div>
   );
@@ -967,7 +1007,6 @@ function DetailScreen({ id, onBack }) {
   const res = data?.reservation || data || {};
   const attendees = data?.attendees || res.attendees || [];
   const messages = data?.messages || res.messages || [];
-
   const STATUS_COLOR = {
     confirmed: "#2e7d32",
     draft: "#888",
@@ -1002,7 +1041,6 @@ function DetailScreen({ id, onBack }) {
       </div>
 
       <div style={{ ...sc.body, paddingBottom: 100 }}>
-        {/* Party */}
         {attendees.length > 0 && (
           <div style={sc.detailSection}>
             <div style={sc.detailSectionTitle}>Party</div>
@@ -1021,7 +1059,6 @@ function DetailScreen({ id, onBack }) {
           </div>
         )}
 
-        {/* Room */}
         {res.dining_room?.name && (
           <div style={sc.detailSection}>
             <div style={sc.detailSectionTitle}>Room</div>
@@ -1029,7 +1066,6 @@ function DetailScreen({ id, onBack }) {
           </div>
         )}
 
-        {/* Notes */}
         {res.notes && (
           <div style={sc.detailSection}>
             <div style={sc.detailSectionTitle}>Notes</div>
@@ -1039,12 +1075,10 @@ function DetailScreen({ id, onBack }) {
           </div>
         )}
 
-        {/* Orders */}
         {attendees.length > 0 && (
           <DetailOrderPanel reservationId={id} attendees={attendees} />
         )}
 
-        {/* Messages */}
         <div style={sc.detailSection}>
           <div style={sc.detailSectionTitle}>Messages with Staff</div>
           {messages.length === 0 && (
@@ -1096,7 +1130,7 @@ function DetailScreen({ id, onBack }) {
   );
 }
 
-// ─── Detail Order Panel (inline ordering inside Detail screen) ────────────────
+// ─── Detail Order Panel ───────────────────────────────────────────────────────
 
 function DetailOrderPanel({ reservationId, attendees }) {
   const { menuItems } = useData();
@@ -1107,6 +1141,7 @@ function DetailOrderPanel({ reservationId, attendees }) {
   const [adding, setAdding] = useState(null);
   const [removing, setRemoving] = useState(null);
   const [showMenu, setShowMenu] = useState(false);
+  const [activeSection, setActiveSection] = useState("all");
 
   useEffect(() => {
     if (!attendees || attendees.length === 0) return;
@@ -1144,6 +1179,14 @@ function DetailOrderPanel({ reservationId, attendees }) {
     (s, i) => s + (i.price_cents_snapshot || 0) * i.quantity,
     0,
   );
+
+  const menu = (menuItems || []).filter((m) => m.is_active);
+  const grouped = groupMenuItems(menu);
+  const visibleSections = SECTION_ORDER.filter(
+    (k) => (grouped[k] || []).length > 0,
+  );
+  const displayedItems =
+    activeSection === "all" ? null : grouped[activeSection] || [];
 
   const addItem = async (menuItem) => {
     if (!currentOrder || isLocked) return;
@@ -1250,7 +1293,7 @@ function DetailOrderPanel({ reservationId, attendees }) {
               }}
               onClick={() => setSelectedAttendee(a)}
             >
-              <span style={ob.attendeeName}>{name.split(" ")[0]}</span>
+              <span>{name.split(" ")[0]}</span>
               {cnt > 0 && <span style={ob.attendeeBadge}>{cnt}</span>}
             </button>
           );
@@ -1300,7 +1343,10 @@ function DetailOrderPanel({ reservationId, attendees }) {
             padding: "12px",
             borderRadius: 8,
           }}
-          onClick={() => setShowMenu((s) => !s)}
+          onClick={() => {
+            setShowMenu((s) => !s);
+            setActiveSection("all");
+          }}
         >
           {showMenu ? "Hide Menu" : "+ Add Items"}
         </button>
@@ -1308,23 +1354,62 @@ function DetailOrderPanel({ reservationId, attendees }) {
 
       {showMenu && !isLocked && (
         <div style={{ marginTop: 10 }}>
-          {(menuItems || []).map((m) => (
-            <div key={m.id} style={{ ...ob.menuCard, marginBottom: 8 }}>
-              <div style={ob.menuInfo}>
-                <div style={ob.menuName}>{m.name}</div>
-                <div style={ob.menuPrice}>
-                  ${(m.price_cents / 100).toFixed(2)}
-                </div>
-              </div>
+          <div style={ob.catScroll}>
+            <button
+              style={{
+                ...ob.catBtn,
+                ...(activeSection === "all" ? ob.catBtnActive : {}),
+              }}
+              onClick={() => setActiveSection("all")}
+            >
+              All
+            </button>
+            {visibleSections.map((k) => (
               <button
-                style={ob.addBtn}
-                onClick={() => addItem(m)}
-                disabled={!!adding}
+                key={k}
+                style={{
+                  ...ob.catBtn,
+                  ...(activeSection === k ? ob.catBtnActive : {}),
+                }}
+                onClick={() => setActiveSection(k)}
               >
-                {adding === m.id ? "..." : "Add"}
+                {SECTION_TITLES[k]}
               </button>
-            </div>
-          ))}
+            ))}
+          </div>
+
+          {activeSection === "all"
+            ? visibleSections.map((k) => (
+                <div key={k}>
+                  <div style={ob.sectionHeader}>{SECTION_TITLES[k]}</div>
+                  {(grouped[k] || []).map((m) => (
+                    <MenuItemRow
+                      key={m.id}
+                      item={m}
+                      qty={
+                        currentItems.find((i) => i.menu_item_id === m.id)
+                          ?.quantity || 0
+                      }
+                      onAdd={() => addItem(m)}
+                      adding={adding === m.id}
+                      isLocked={isLocked}
+                    />
+                  ))}
+                </div>
+              ))
+            : (displayedItems || []).map((m) => (
+                <MenuItemRow
+                  key={m.id}
+                  item={m}
+                  qty={
+                    currentItems.find((i) => i.menu_item_id === m.id)
+                      ?.quantity || 0
+                  }
+                  onAdd={() => addItem(m)}
+                  adding={adding === m.id}
+                  isLocked={isLocked}
+                />
+              ))}
         </div>
       )}
     </div>
@@ -1346,7 +1431,6 @@ function MembersScreen() {
   const [confirmDelete, setConfirmDelete] = useState(null);
 
   const emptyForm = { name: "", relation: "", dietary_restrictions: [] };
-
   const openNew = () => {
     setEditing(null);
     setForm(emptyForm);
@@ -1687,16 +1771,20 @@ function MessagesScreen() {
         <div style={sc.sectionLabel}>
           Select a reservation to message about:
         </div>
-        {upcoming.map((r) => (
-          <button key={r.id} style={sc.resCard} onClick={() => selectRes(r)}>
+        {upcoming.map((res) => (
+          <button
+            key={res.id}
+            style={sc.resCard}
+            onClick={() => selectRes(res)}
+          >
             <div style={sc.resTop}>
-              <span style={sc.resDate}>{fmtDate(r.date)}</span>
-              <span style={sc.resTime}>{fmtTime(r.start_time)}</span>
+              <span style={sc.resDate}>{fmtDate(res.date)}</span>
+              <span style={sc.resTime}>{fmtTime(res.start_time)}</span>
             </div>
             <div style={sc.resMeal}>
-              {(r.meal_type || "lunch").charAt(0).toUpperCase() +
-                (r.meal_type || "lunch").slice(1)}
-              {r.dining_room?.name ? ` · ${r.dining_room.name}` : ""}
+              {(res.meal_type || "lunch").charAt(0).toUpperCase() +
+                (res.meal_type || "lunch").slice(1)}
+              {res.dining_room?.name ? ` · ${res.dining_room.name}` : ""}
             </div>
             <div style={{ ...sc.resStatus, marginTop: 4 }}>
               Tap to view messages →
@@ -1708,7 +1796,7 @@ function MessagesScreen() {
   );
 }
 
-// ─── Shared UI primitives ─────────────────────────────────────────────────────
+// ─── Shared primitives ────────────────────────────────────────────────────────
 
 function Field({ label, children }) {
   return (
@@ -1746,7 +1834,6 @@ function BigBtn({ onClick, disabled, children, ghost }) {
         color: disabled ? "#999" : ghost ? "#1B2D45" : "#fff",
         cursor: disabled ? "not-allowed" : "pointer",
         marginBottom: 8,
-        letterSpacing: "0.01em",
         boxShadow: "none",
         textTransform: "none",
         boxSizing: "border-box",
@@ -2265,7 +2352,6 @@ const inp = {
   },
 };
 
-// Order builder styles
 const ob = {
   attendeeRow: { display: "flex", gap: 6, marginTop: 12, flexWrap: "wrap" },
   attendeeBtn: {
@@ -2289,7 +2375,6 @@ const ob = {
     border: "1.5px solid #1B2D45",
     color: "#fff",
   },
-  attendeeName: { fontSize: 12 },
   attendeeBadge: {
     background: "#c8783c",
     color: "#fff",
@@ -2356,7 +2441,7 @@ const ob = {
     gap: 6,
     overflowX: "auto",
     paddingBottom: 8,
-    marginBottom: 4,
+    marginBottom: 8,
     WebkitOverflowScrolling: "touch",
     scrollbarWidth: "none",
   },
@@ -2379,11 +2464,15 @@ const ob = {
     border: "1.5px solid #1B2D45",
     color: "#fff",
   },
-  menuList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 8,
-    paddingBottom: 100,
+  sectionHeader: {
+    fontSize: 11,
+    fontWeight: 800,
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+    color: "#888",
+    padding: "12px 0 6px",
+    borderBottom: "1px solid #e8e5e0",
+    marginBottom: 4,
   },
   menuCard: {
     background: "#fff",
@@ -2393,6 +2482,7 @@ const ob = {
     display: "flex",
     alignItems: "center",
     gap: 12,
+    marginBottom: 8,
   },
   menuInfo: { flex: 1 },
   menuName: {

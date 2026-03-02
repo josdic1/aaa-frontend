@@ -34,13 +34,21 @@ export function AuthProvider({ children }) {
       });
 
       // 2. Access the token directly from loginData
-      const { access_token } = loginData;
+      const { access_token, refresh_token } = loginData;
 
       if (!access_token) {
         throw new Error("No token received from server");
       }
 
+      // Keep using "token" since api.js reads it
       localStorage.setItem("token", access_token);
+
+      // Optional: also store access_token for consistency (api.js already checks it)
+      localStorage.setItem("access_token", access_token);
+
+      if (refresh_token) {
+        localStorage.setItem("refresh_token", refresh_token);
+      }
 
       // 3. Same here: meResponse will be the user object directly
       const userData = await api.get("/api/auth/me");
