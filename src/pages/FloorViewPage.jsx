@@ -256,8 +256,15 @@ export function FloorViewPage() {
     (r) => !r?.table?.table_id && !assignedReservationIds.has(r.reservation_id),
   );
 
-  const isTableAvailable = (tableId) =>
-    !assignments.some((a) => a.table_id === tableId);
+  const isTableAvailable = (tableId) => {
+    const assignment = assignments.find((a) => a.table_id === tableId);
+    if (!assignment) return true;
+    const bs = bootstraps[assignment.reservation_id];
+    if (!bs) return false;
+    const orders = bs.orders || [];
+    if (orders.length === 0) return false;
+    return orders.every((o) => o.status === "fulfilled");
+  };
 
   const seatReservationToTable = async (reservationId, table) => {
     const partySize = seatingReservation?.party_size ?? null;

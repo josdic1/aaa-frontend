@@ -56,9 +56,7 @@ export function AdminPage() {
     }
   };
 
-  useEffect(() => {
-    load();
-  }, [date]);
+  useEffect(() => { load(); }, [date]);
 
   const getAssignment = (reservationId) =>
     assignments.find((a) => a.reservation_id === reservationId);
@@ -72,10 +70,7 @@ export function AdminPage() {
 
   const updateStatus = async (reservationId, status) => {
     try {
-      await api.patch(
-        `/api/admin/reservations/${reservationId}`,
-        sanitizeReservationPatch({ status }),
-      );
+      await api.patch(`/api/admin/reservations/${reservationId}`, sanitizeReservationPatch({ status }));
       await load();
       toast.success(`Reservation ${status}`);
     } catch (err) {
@@ -97,17 +92,12 @@ export function AdminPage() {
   };
 
   const submitAssignment = async () => {
-    if (!selectedTableId) {
-      toast.error("Select a table");
-      return;
-    }
+    if (!selectedTableId) { toast.error("Select a table"); return; }
     setAssignLoading(true);
     try {
       const existing = getAssignment(assigning.reservation_id);
       if (existing) {
-        await api.patch(`/api/seat-assignments/${existing.id}`, {
-          table_id: parseInt(selectedTableId),
-        });
+        await api.patch(`/api/seat-assignments/${existing.id}`, { table_id: parseInt(selectedTableId) });
       } else {
         await api.post("/api/seat-assignments", {
           reservation_id: assigning.reservation_id,
@@ -151,26 +141,18 @@ export function AdminPage() {
     tables.filter((t) => t.dining_room_id === parseInt(roomId) && t.is_active);
 
   // Apply status filter to reservation list
-  const filteredReservations =
-    statusFilter === "all"
-      ? reservations
-      : reservations.filter((r) => r.status === statusFilter);
+  const filteredReservations = statusFilter === "all"
+    ? reservations
+    : reservations.filter((r) => r.status === statusFilter);
 
   // Count per status for filter tab badges
   const statusCounts = STATUS_FILTERS.reduce((acc, s) => {
-    acc[s] =
-      s === "all"
-        ? reservations.length
-        : reservations.filter((r) => r.status === s).length;
+    acc[s] = s === "all" ? reservations.length : reservations.filter((r) => r.status === s).length;
     return acc;
   }, {});
 
   if (loading)
-    return (
-      <div className="page">
-        <p className="muted">Loading...</p>
-      </div>
-    );
+    return <div className="page"><p className="muted">Loading...</p></div>;
 
   return (
     <div className="page" style={{ maxWidth: "900px" }}>
@@ -181,44 +163,18 @@ export function AdminPage() {
           <p className="muted">Manage reservations, seating, and orders.</p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <button
-            className="ghost"
-            style={{ fontSize: "18px", padding: "4px 10px", lineHeight: 1 }}
-            onClick={() => {
-              const d = new Date(date + "T12:00:00");
-              d.setDate(d.getDate() - 1);
-              setDate(d.toISOString().split("T")[0]);
-            }}
-          >
+          <button className="ghost" style={{ fontSize: "18px", padding: "4px 10px", lineHeight: 1 }}
+            onClick={() => { const d = new Date(date + "T12:00:00"); d.setDate(d.getDate() - 1); setDate(d.toISOString().split("T")[0]); }}>
             ‹
           </button>
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            style={{
-              fontSize: "13px",
-              padding: "6px 10px",
-              border: "2px solid var(--border)",
-              borderRadius: "var(--radius-sm)",
-            }}
-          />
-          <button
-            className="ghost"
-            style={{ fontSize: "18px", padding: "4px 10px", lineHeight: 1 }}
-            onClick={() => {
-              const d = new Date(date + "T12:00:00");
-              d.setDate(d.getDate() + 1);
-              setDate(d.toISOString().split("T")[0]);
-            }}
-          >
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
+            style={{ fontSize: "13px", padding: "6px 10px", border: "2px solid var(--border)", borderRadius: "var(--radius-sm)" }} />
+          <button className="ghost" style={{ fontSize: "18px", padding: "4px 10px", lineHeight: 1 }}
+            onClick={() => { const d = new Date(date + "T12:00:00"); d.setDate(d.getDate() + 1); setDate(d.toISOString().split("T")[0]); }}>
             ›
           </button>
-          <button
-            className="ghost"
-            style={{ fontSize: "11px", fontWeight: 700 }}
-            onClick={() => setDate(new Date().toISOString().split("T")[0])}
-          >
+          <button className="ghost" style={{ fontSize: "11px", fontWeight: 700 }}
+            onClick={() => setDate(new Date().toISOString().split("T")[0])}>
             Today
           </button>
         </div>
@@ -226,16 +182,10 @@ export function AdminPage() {
 
       {/* ── Main tabs: Reservations / Fired Orders ── */}
       <div style={s.tabs}>
-        <button
-          style={{ ...s.tab, ...(tab === "reservations" ? s.tabActive : {}) }}
-          onClick={() => setTab("reservations")}
-        >
+        <button style={{ ...s.tab, ...(tab === "reservations" ? s.tabActive : {}) }} onClick={() => setTab("reservations")}>
           Reservations ({reservations.length})
         </button>
-        <button
-          style={{ ...s.tab, ...(tab === "orders" ? s.tabActive : {}) }}
-          onClick={() => setTab("orders")}
-        >
+        <button style={{ ...s.tab, ...(tab === "orders" ? s.tabActive : {}) }} onClick={() => setTab("orders")}>
           Fired Orders ({firedOrders.length})
         </button>
       </div>
@@ -250,29 +200,21 @@ export function AdminPage() {
                 key={f}
                 style={{
                   ...s.filterBtn,
-                  ...(statusFilter === f
-                    ? {
-                        background:
-                          f === "all" ? "var(--accent)" : resStatusColor(f),
-                        color: "#fff",
-                        border: `1.5px solid ${f === "all" ? "var(--accent)" : resStatusColor(f)}`,
-                      }
-                    : {}),
+                  ...(statusFilter === f ? {
+                    background: f === "all" ? "var(--accent)" : resStatusColor(f),
+                    color: "#fff",
+                    border: `1.5px solid ${f === "all" ? "var(--accent)" : resStatusColor(f)}`,
+                  } : {}),
                 }}
                 onClick={() => setStatusFilter(f)}
               >
                 {f.charAt(0).toUpperCase() + f.slice(1)}
                 {statusCounts[f] > 0 && (
-                  <span
-                    style={{
-                      ...s.filterCount,
-                      background:
-                        statusFilter === f
-                          ? "rgba(255,255,255,0.25)"
-                          : "var(--border-dim)",
-                      color: statusFilter === f ? "#fff" : "var(--muted)",
-                    }}
-                  >
+                  <span style={{
+                    ...s.filterCount,
+                    background: statusFilter === f ? "rgba(255,255,255,0.25)" : "var(--border-dim)",
+                    color: statusFilter === f ? "#fff" : "var(--muted)",
+                  }}>
                     {statusCounts[f]}
                   </span>
                 )}
@@ -301,30 +243,21 @@ export function AdminPage() {
 
             // Order summary from res.orders if present
             const orders = res.orders || [];
-            const totalItems = orders.reduce(
-              (n, o) => n + (o.items?.length || o.item_count || 0),
-              0,
-            );
+            const totalItems = orders.reduce((n, o) => n + (o.items?.length || o.item_count || 0), 0);
             const hasFired = orders.some((o) => o.status === "fired");
-            const hasFulfilled =
-              orders.every((o) => o.status === "fulfilled") &&
-              orders.length > 0;
+            const hasFulfilled = orders.every((o) => o.status === "fulfilled") && orders.length > 0;
 
             // Room name from preference or table assignment
             const prefRoom = res.dining_room?.name || null;
-            const assignedTable = assignment
-              ? getTableLabel(assignment.table_id)
-              : null;
+            const assignedTable = assignment ? getTableLabel(assignment.table_id) : null;
 
             // Unread messages
             const unreadCount = res.unread_message_count || 0;
 
             return (
-              <div
-                key={res.reservation_id}
-                className="card"
-                style={{ ...s.resCard, borderLeft: `4px solid ${statusColor}` }}
-              >
+              <div key={res.reservation_id} className="card"
+                style={{ ...s.resCard, borderLeft: `4px solid ${statusColor}` }}>
+
                 {/* ── Card header: time + status ── */}
                 <div style={s.resHeader}>
                   <div>
@@ -334,13 +267,11 @@ export function AdminPage() {
                     </div>
                     <div style={s.resMeta}>
                       <span className="muted" style={{ fontSize: "11px" }}>
-                        #{res.reservation_id} · {res.party_size} guest
-                        {res.party_size !== 1 ? "s" : ""}
+                        #{res.reservation_id} · {res.party_size} guest{res.party_size !== 1 ? "s" : ""}
                       </span>
                       {res.meal_type && (
                         <span style={s.metaChip}>
-                          {res.meal_type.charAt(0).toUpperCase() +
-                            res.meal_type.slice(1)}
+                          {res.meal_type.charAt(0).toUpperCase() + res.meal_type.slice(1)}
                         </span>
                       )}
                       {prefRoom && !assignedTable && (
@@ -357,9 +288,7 @@ export function AdminPage() {
                 {attendeeNames.length > 0 && (
                   <div style={s.attendeeRow}>
                     <span style={s.attendeeLabel}>Party:</span>
-                    <span style={s.attendeeNames}>
-                      {attendeeNames.join(", ")}
-                    </span>
+                    <span style={s.attendeeNames}>{attendeeNames.join(", ")}</span>
                   </div>
                 )}
 
@@ -385,14 +314,11 @@ export function AdminPage() {
                       🍽 {totalItems} item{totalItems !== 1 ? "s" : ""} selected
                     </span>
                   )}
-                  {!hasFired &&
-                    !hasFulfilled &&
-                    totalItems === 0 &&
-                    res.status !== "cancelled" && (
-                      <span style={{ ...s.chip, color: "#b45309" }}>
-                        ⚠ No order placed
-                      </span>
-                    )}
+                  {!hasFired && !hasFulfilled && totalItems === 0 && res.status !== "cancelled" && (
+                    <span style={{ ...s.chip, color: "#b45309" }}>
+                      ⚠ No order placed
+                    </span>
+                  )}
                   {unreadCount > 0 && (
                     <span style={{ ...s.chip, color: "#1B2D45" }}>
                       💬 {unreadCount} unread
@@ -402,46 +328,25 @@ export function AdminPage() {
 
                 {/* ── Thermometer ── */}
                 <div style={{ padding: "12px 0 4px" }}>
-                  <ReservationThermometer
-                    reservation={res}
-                    adminData={res}
-                    size="compact"
-                  />
+                  <ReservationThermometer reservation={res} adminData={res} size="compact" />
                 </div>
 
                 {/* ── Table assignment row ── */}
                 <div style={s.assignRow}>
                   {assignment ? (
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "12px",
-                      }}
-                    >
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                       <div style={{ fontSize: "12px" }}>
                         📍 <strong>{getTableLabel(assignment.table_id)}</strong>
                       </div>
-                      <button
-                        className="ghost"
-                        style={{ fontSize: "11px" }}
-                        onClick={() => openAssignModal(res)}
-                      >
+                      <button className="ghost" style={{ fontSize: "11px" }} onClick={() => openAssignModal(res)}>
                         Reassign
                       </button>
-                      <button
-                        style={s.dangerBtn}
-                        onClick={() => removeAssignment(res.reservation_id)}
-                      >
+                      <button style={s.dangerBtn} onClick={() => removeAssignment(res.reservation_id)}>
                         Remove
                       </button>
                     </div>
                   ) : (
-                    <button
-                      className="ghost"
-                      style={{ fontSize: "12px", fontWeight: 700 }}
-                      onClick={() => openAssignModal(res)}
-                    >
+                    <button className="ghost" style={{ fontSize: "12px", fontWeight: 700 }} onClick={() => openAssignModal(res)}>
                       + Assign Table
                     </button>
                   )}
@@ -450,40 +355,25 @@ export function AdminPage() {
                 {/* ── Action buttons ── */}
                 <div style={s.actionRow}>
                   {res.status !== "confirmed" && (
-                    <button
-                      className="primary"
-                      style={{ fontSize: "12px" }}
-                      onClick={() =>
-                        updateStatus(res.reservation_id, "confirmed")
-                      }
-                    >
+                    <button className="primary" style={{ fontSize: "12px" }}
+                      onClick={() => updateStatus(res.reservation_id, "confirmed")}>
                       Confirm
                     </button>
                   )}
                   {res.status !== "cancelled" && (
-                    <button
-                      style={s.dangerBtn}
-                      onClick={() =>
-                        updateStatus(res.reservation_id, "cancelled")
-                      }
-                    >
+                    <button style={s.dangerBtn}
+                      onClick={() => updateStatus(res.reservation_id, "cancelled")}>
                       Cancel
                     </button>
                   )}
                   {res.status === "cancelled" && (
-                    <button
-                      className="ghost"
-                      style={{ fontSize: "12px" }}
-                      onClick={() => updateStatus(res.reservation_id, "draft")}
-                    >
+                    <button className="ghost" style={{ fontSize: "12px" }}
+                      onClick={() => updateStatus(res.reservation_id, "draft")}>
                       Restore Draft
                     </button>
                   )}
-                  <button
-                    className="ghost"
-                    style={{ fontSize: "12px", fontWeight: 700 }}
-                    onClick={() => setDetailRes(res.reservation_id)}
-                  >
+                  <button className="ghost" style={{ fontSize: "12px", fontWeight: 700 }}
+                    onClick={() => setDetailRes(res.reservation_id)}>
                     Details
                   </button>
                 </div>
@@ -505,25 +395,14 @@ export function AdminPage() {
             <div key={order.id} className="card" style={s.orderCard}>
               <div style={s.orderHeader}>
                 <div>
-                  <div style={{ fontWeight: 900, fontSize: "15px" }}>
-                    Order #{order.id}
-                  </div>
-                  {order.attendee?.member?.name ||
-                  order.attendee?.guest_name ? (
-                    <div
-                      className="muted"
-                      style={{ fontSize: "12px", marginTop: "2px" }}
-                    >
-                      {order.attendee?.member?.name ||
-                        order.attendee?.guest_name}
+                  <div style={{ fontWeight: 900, fontSize: "15px" }}>Order #{order.id}</div>
+                  {order.attendee?.member?.name || order.attendee?.guest_name ? (
+                    <div className="muted" style={{ fontSize: "12px", marginTop: "2px" }}>
+                      {order.attendee?.member?.name || order.attendee?.guest_name}
                     </div>
                   ) : null}
                 </div>
-                <button
-                  className="primary"
-                  style={{ fontSize: "12px" }}
-                  onClick={() => fulfillOrder(order.id)}
-                >
+                <button className="primary" style={{ fontSize: "12px" }} onClick={() => fulfillOrder(order.id)}>
                   ✓ Fulfill
                 </button>
               </div>
@@ -531,14 +410,9 @@ export function AdminPage() {
                 <div style={s.itemList}>
                   {order.items.map((item) => (
                     <div key={item.id} style={s.itemRow}>
-                      <span>
-                        {item.name_snapshot}
-                        {item.quantity > 1 && ` x${item.quantity}`}
-                      </span>
+                      <span>{item.name_snapshot}{item.quantity > 1 && ` x${item.quantity}`}</span>
                       <span style={{ fontWeight: 700 }}>
-                        {formatPrice(
-                          (item.price_cents_snapshot || 0) * item.quantity,
-                        )}
+                        {formatPrice((item.price_cents_snapshot || 0) * item.quantity)}
                       </span>
                     </div>
                   ))}
@@ -554,58 +428,30 @@ export function AdminPage() {
         <div style={s.modalOverlay} onClick={() => setAssigning(null)}>
           <div style={s.modal} onClick={(e) => e.stopPropagation()}>
             <div style={s.modalTitle}>Assign Table</div>
-            <button onClick={() => setAssigning(null)} style={s.closeBtn}>
-              ✕
-            </button>
+            <button onClick={() => setAssigning(null)} style={s.closeBtn}>✕</button>
             <div className="field">
               <label>Room</label>
-              <select
-                value={selectedRoomId}
-                onChange={(e) => {
-                  setSelectedRoomId(e.target.value);
-                  setSelectedTableId("");
-                }}
-              >
+              <select value={selectedRoomId} onChange={(e) => { setSelectedRoomId(e.target.value); setSelectedTableId(""); }}>
                 <option value="">Select a room...</option>
                 {activeRooms.map((room) => (
-                  <option key={room.id} value={room.id}>
-                    {room.name}
-                  </option>
+                  <option key={room.id} value={room.id}>{room.name}</option>
                 ))}
               </select>
             </div>
             {selectedRoomId && (
               <div className="field">
                 <label>Table</label>
-                <select
-                  value={selectedTableId}
-                  onChange={(e) => setSelectedTableId(e.target.value)}
-                >
+                <select value={selectedTableId} onChange={(e) => setSelectedTableId(e.target.value)}>
                   <option value="">Select a table...</option>
                   {tablesInRoom(selectedRoomId).map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name} — {t.seat_count} seats
-                    </option>
+                    <option key={t.id} value={t.id}>{t.name} — {t.seat_count} seats</option>
                   ))}
                 </select>
               </div>
             )}
-            <div
-              style={{
-                display: "flex",
-                gap: "8px",
-                justifyContent: "flex-end",
-                marginTop: "20px",
-              }}
-            >
-              <button className="ghost" onClick={() => setAssigning(null)}>
-                Cancel
-              </button>
-              <button
-                className="primary"
-                onClick={submitAssignment}
-                disabled={assignLoading || !selectedTableId}
-              >
+            <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end", marginTop: "20px" }}>
+              <button className="ghost" onClick={() => setAssigning(null)}>Cancel</button>
+              <button className="primary" onClick={submitAssignment} disabled={assignLoading || !selectedTableId}>
                 {assignLoading ? "Assigning..." : "Assign Table"}
               </button>
             </div>
