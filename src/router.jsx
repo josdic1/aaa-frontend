@@ -19,6 +19,7 @@ import { KnownIssues } from "./pages/KnownIssues";
 import { CalendarPage } from "./pages/CalendarPage";
 import { MobileHub } from "./pages/mobile/MobileHub";
 
+
 function RootIndex() {
   const { user } = useAuth();
 
