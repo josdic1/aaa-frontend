@@ -266,40 +266,6 @@ function BookScreen() {
   return (
     <div style={sc.root}>
       <div style={sc.head}>
-        <a
-          href="https://abbeyton-lodge.netlify.app"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "6px",
-            fontFamily: "'Source Code Pro', monospace",
-            fontSize: "11px",
-            letterSpacing: "1.5px",
-            textTransform: "uppercase",
-            color: "rgba(255,255,255,0.55)",
-            textDecoration: "none",
-            marginBottom: "20px",
-            transition: "color 0.2s",
-          }}
-          onMouseOver={(e) => (e.currentTarget.style.color = "#e8622a")}
-          onMouseOut={(e) =>
-            (e.currentTarget.style.color = "rgba(255,255,255,0.55)")
-          }
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <polyline points="15 18 9 12 15 6"></polyline>
-          </svg>
-          Return to Abbeyton Lodge Website
-        </a>
         <div style={sc.eyebrow}>Book a Table</div>
         <div style={sc.title}>New Reservation</div>
         <div style={sc.steps}>
