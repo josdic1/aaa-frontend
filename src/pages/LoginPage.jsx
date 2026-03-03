@@ -27,7 +27,7 @@ export function LoginPage() {
       await login(email, password);
       navigate(fromPath, { replace: true });
     } catch (err) {
-      setError(err.detail || "Invalid email or password.");
+      setError(err?.detail || "Invalid email or password.");
     } finally {
       setLoading(false);
     }
@@ -38,7 +38,6 @@ export function LoginPage() {
     setPassword(p);
   };
 
-  // Helper to handle the boutique row data
   const roleGroups = [
     { role: "STAFF", names: ["Ariel", "Brian"] },
     { role: "MEMBER", names: ["Dorrie", "Jaime"] },
@@ -65,23 +64,11 @@ export function LoginPage() {
 
   return (
     <div style={s.page}>
-      <div
-        style={{
-          position: "fixed",
-          top: 8,
-          left: 8,
-          zIndex: 9999,
-          background: "yellow",
-          padding: 6,
-          fontWeight: 900,
-        }}
-      >
-        LOGIN PAGE IS THIS FILE
-      </div>
       {/* LEFT SECTION - Branding */}
       <div style={s.left}>
         <div style={s.pattern} />
         <div style={s.circle} />
+
         <div style={s.brand}>
           <div style={s.eyebrow}>Members Portal</div>
           <div style={s.lodgeName}>
@@ -91,6 +78,26 @@ export function LoginPage() {
           </div>
           <div style={s.tagline}>
             Private dining reservations and member services for Abeyton Lodge.
+          </div>
+
+          {/* USER GUIDES (requested block) */}
+          <div style={s.guidesWrap}>
+            <div style={s.guidesHeader}>User Guides</div>
+
+            <div style={s.guidesList}>
+              {userGuides.map(({ href, title, Icon }) => (
+                <a
+                  key={href}
+                  href={href}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={s.guideLink}
+                >
+                  <Icon size={16} style={s.guideIcon} />
+                  <span style={s.guideTitle}>{title}</span>
+                </a>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -351,6 +358,50 @@ const s = {
     lineHeight: 1.6,
     maxWidth: "280px",
   },
+
+  // USER GUIDES styles (minimal, delicate, noticeable)
+  guidesWrap: {
+    marginTop: "34px",
+    paddingTop: "22px",
+    borderTop: "1px solid rgba(255,255,255,0.08)",
+    maxWidth: "320px",
+  },
+  guidesHeader: {
+    fontSize: "10px",
+    fontWeight: 800,
+    letterSpacing: "0.28em",
+    textTransform: "uppercase",
+    color: "rgba(255,255,255,0.45)",
+    marginBottom: "14px",
+    fontFamily: `"Source Code Pro", monospace`,
+  },
+  guidesList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px",
+  },
+  guideLink: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    textDecoration: "none",
+    color: "rgba(255,255,255,0.72)",
+    fontFamily: `"Source Code Pro", monospace`,
+    fontSize: "12px",
+    letterSpacing: "0.12em",
+    textTransform: "uppercase",
+    lineHeight: 1.2,
+    padding: "8px 0",
+    borderBottom: "1px solid rgba(255,255,255,0.06)",
+  },
+  guideIcon: {
+    opacity: 0.75,
+    flex: "0 0 auto",
+  },
+  guideTitle: {
+    display: "inline-block",
+  },
+
   debugLink: {
     fontSize: "12px",
     color: "rgba(0,0,0,0.4)",
