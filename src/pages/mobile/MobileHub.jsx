@@ -266,6 +266,26 @@ function BookScreen() {
   return (
     <div style={sc.root}>
       <div style={sc.head}>
+        <a
+          href="https://abbeyton-lodge.netlify.app"
+          style="display:inline-flex;align-items:center;gap:6px;font-family:'Source Code Pro',monospace;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.55);text-decoration:none;margin-bottom:20px;transition:color 0.2s;"
+          onmouseover="this.style.color='#e8622a'"
+          onmouseout="this.style.color='rgba(255,255,255,0.55)'"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+          Return to Abeyton Lodge
+        </a>
         <div style={sc.eyebrow}>Book a Table</div>
         <div style={sc.title}>New Reservation</div>
         <div style={sc.steps}>
