@@ -461,16 +461,40 @@
   </head>
   <body>
     <div class="cover">
-      <div class="cover-label">Abeyton Lodge · Member Reference</div>
       <a
-        class="cback"
         href="https://abbeyton-lodge.netlify.app"
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Return to Abeyton Lodge"
+        style="
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          font-family: &quot;Source Code Pro&quot;, monospace;
+          font-size: 11px;
+          letter-spacing: 1.5px;
+          text-transform: uppercase;
+          color: rgba(255, 255, 255, 0.55);
+          text-decoration: none;
+          margin-bottom: 20px;
+          transition: color 0.2s;
+        "
+        onmouseover="this.style.color = '#e8622a'"
+        onmouseout="this.style.color = 'rgba(255,255,255,0.55)'"
       >
-        ← Return to Abeyton Lodge
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+        Return to Abeyton Lodge
       </a>
+      <div class="cover-label">Abeyton Lodge · Member Reference</div>
+
       <h1>Member<br />Quick Guide</h1>
       <p class="cover-sub">
         How to book, order, manage your household, and message staff — from your

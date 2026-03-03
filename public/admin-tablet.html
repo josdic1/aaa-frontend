@@ -364,19 +364,41 @@
   </head>
   <body>
     <div class="cover">
+      <a
+        href="https://abbeyton-lodge.netlify.app"
+        style="
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          font-family: &quot;Source Code Pro&quot;, monospace;
+          font-size: 11px;
+          letter-spacing: 1.5px;
+          text-transform: uppercase;
+          color: rgba(255, 255, 255, 0.55);
+          text-decoration: none;
+          margin-bottom: 20px;
+          transition: color 0.2s;
+        "
+        onmouseover="this.style.color = '#e8622a'"
+        onmouseout="this.style.color = 'rgba(255,255,255,0.55)'"
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+        Return to Abeyton Lodge
+      </a>
       <div class="clabel">
         Abeyton Lodge · Internal Reference · Annotated Edition
       </div>
-
-      <a
-        class="cback"
-        href="https://abbeyton-lodge.netlify.app"
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Return to Abeyton Lodge"
-      >
-        ← Return to Abeyton Lodge
-      </a>
 
       <h1>Staff &amp; Admin<br />Annotated Guide</h1>
       <p class="csub">
@@ -515,7 +537,8 @@
               <strong>Staff must fill this in.</strong> Leave blank only if
               you're a member. The invite code is what sets your account role to
               Staff rather than Member. Get the code from management. If you
-              missed it, an Admin can fix your role later via Overlord → Users. Invite code is <code>STAFF2026</code>.
+              missed it, an Admin can fix your role later via Overlord → Users.
+              Invite code is <code>STAFF2026</code>.
             </div>
           </div>
         </div>
