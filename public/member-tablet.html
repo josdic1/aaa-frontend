@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Abeyton Lodge — Member Guide</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Sans+3:wght@300;400;600&family=Source+Code+Pro:wght@400;600&display=swap');
+
+  :root {
+    --navy: #1C2B3A;
+    --orange: #E8622A;
+    --blue: #2C4A6E;
+    --light-blue: #EEF2F7;
+    --light: #F8F6F2;
+    --white: #FEFEFE;
+    --border: #DDD9D0;
+    --mid: #5A5A58;
+    --gold: #C9963C;
+    --green: #2D6A4F;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Source Sans 3', sans-serif;
+    background: var(--light);
+    color: var(--navy);
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  /* COVER */
+  .cover {
+    background: var(--navy);
+    color: var(--white);
+    padding: 60px 40px 48px;
+    position: relative;
+    overflow: hidden;
+  }
+  .cover::after {
+    content: '';
+    position: absolute;
+    bottom: -60px; right: -60px;
+    width: 240px; height: 240px;
+    border-radius: 50%;
+    background: var(--orange);
+    opacity: 0.15;
+  }
+  .cover-label {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--orange);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .cover h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 40px;
+    font-weight: 700;
+    line-height: 1.1;
+    margin-bottom: 12px;
+  }
+  .cover-sub {
+    font-size: 16px;
+    color: rgba(255,255,255,0.55);
+    margin-bottom: 32px;
+    max-width: 400px;
+  }
+  .cover-tags {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .cover-tag {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* MOBILE FRAME ACCENT */
+  .phone-accent {
+    display: inline-block;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 16px;
+    padding: 6px 14px;
+    font-size: 12px;
+    color: rgba(255,255,255,0.7);
+    font-family: 'Source Code Pro', monospace;
+    margin-bottom: 20px;
+  }
+
+  /* NAV */
+  .nav-bar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(248,246,242,0.95);
+    backdrop-filter: blur(6px);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 40px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .nav-bar::-webkit-scrollbar { display: none; }
+  .nav-link {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--mid);
+    text-decoration: none;
+    white-space: nowrap;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.15s;
+  }
+  .nav-link:hover { background: var(--light-blue); color: var(--navy); }
+  .nav-dot { color: var(--border); font-size: 8px; }
+
+  /* SECTIONS */
+  .section {
+    padding: 48px 40px 32px;
+    border-bottom: 1px solid var(--border);
+    max-width: 860px;
+    margin: 0 auto;
+  }
+  .section:last-child { border-bottom: none; }
+
+  .section-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .section-num {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--orange);
+    background: rgba(232,98,42,0.08);
+    border: 1px solid rgba(232,98,42,0.2);
+    padding: 4px 10px;
+    border-radius: 4px;
+    white-space: nowrap;
+    margin-top: 4px;
+  }
+  .section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  .section-desc {
+    font-size: 14px;
+    color: var(--mid);
+    margin-top: 4px;
+  }
+
+  /* STEPS */
+  .steps { display: flex; flex-direction: column; gap: 0; }
+  .step {
+    display: flex;
+    gap: 20px;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .step:last-child { border-bottom: none; }
+
+  .step-num {
+    width: 40px; height: 40px; min-width: 40px;
+    background: var(--navy);
+    color: var(--white);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    font-weight: 700;
+    margin-top: 2px;
+  }
+  .step-num.orange { background: var(--orange); }
+  .step-num.blue { background: var(--blue); }
+  .step-num.green { background: var(--green); }
+
+  .step-action { font-weight: 700; font-size: 16px; margin-bottom: 4px; }
+  .step-detail { font-size: 14px; color: var(--mid); line-height: 1.5; }
+
+  /* MOBILE ELEMENTS */
+  .mob-btn {
+    display: inline-block;
+    padding: 3px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: 'Source Code Pro', monospace;
+    vertical-align: middle;
+  }
+  .mob-btn.navy { background: var(--navy); color: var(--white); }
+  .mob-btn.orange { background: var(--orange); color: var(--white); }
+  .mob-btn.outline { border: 1.5px solid var(--navy); color: var(--navy); background: transparent; }
+
+  .mob-tab {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: 'Source Code Pro', monospace;
+    background: var(--navy);
+    color: var(--white);
+    vertical-align: middle;
+  }
+  .mob-tab.inactive {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--mid);
+  }
+
+  /* CALLOUT */
+  .callout {
+    display: flex;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 8px;
+    margin: 16px 0;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .callout-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .callout.warn { background: rgba(201,150,60,0.1); border-left: 3px solid var(--gold); }
+  .callout.info { background: rgba(45,106,79,0.08); border-left: 3px solid var(--green); }
+  .callout.tip { background: rgba(232,98,42,0.08); border-left: 3px solid var(--orange); }
+
+  /* BOTTOM NAV REFERENCE */
+  .bottom-nav {
+    display: flex;
+    gap: 0;
+    background: var(--navy);
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 16px 0;
+    max-width: 480px;
+  }
+  .bn-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 6px 8px;
+    font-size: 10px;
+    font-family: 'Source Code Pro', monospace;
+    letter-spacing: 0.5px;
+    color: rgba(255,255,255,0.5);
+    text-transform: uppercase;
+    gap: 4px;
+    border-right: 1px solid rgba(255,255,255,0.08);
+  }
+  .bn-item:last-child { border-right: none; }
+  .bn-item.active { color: var(--white); background: rgba(255,255,255,0.1); }
+  .bn-icon { font-size: 18px; }
+
+  /* TWO COL */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 16px 0;
+  }
+  @media(max-width: 560px) { .two-col { grid-template-columns: 1fr; } }
+
+  .mini-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .mini-card-title {
+    font-weight: 700;
+    font-size: 13px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* STEPS BAR */
+  .steps-bar {
+    display: flex;
+    gap: 0;
+    margin: 16px 0;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    max-width: 480px;
+  }
+  .sb-item {
+    flex: 1;
+    padding: 10px 12px;
+    font-size: 11px;
+    font-family: 'Source Code Pro', monospace;
+    text-align: center;
+    background: var(--white);
+    color: var(--mid);
+    border-right: 1px solid var(--border);
+    line-height: 1.3;
+  }
+  .sb-item:last-child { border-right: none; }
+  .sb-item.active { background: var(--navy); color: var(--white); }
+  .sb-num { font-size: 14px; font-weight: 700; display: block; }
+
+  /* CHIP */
+  .ui-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    font-family: 'Source Code Pro', monospace;
+    vertical-align: middle;
+  }
+  .chip-green { background: rgba(45,106,79,0.12); color: var(--green); border: 1px solid rgba(45,106,79,0.3); }
+  .chip-warn { background: rgba(232,98,42,0.1); color: var(--orange); border: 1px solid rgba(232,98,42,0.25); }
+
+  /* REF TABLE */
+  .ref-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin: 12px 0;
+  }
+  .ref-table th {
+    text-align: left;
+    padding: 8px 12px;
+    background: var(--light-blue);
+    font-family: 'Source Code Pro', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--mid);
+    border-bottom: 1px solid var(--border);
+  }
+  .ref-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .ref-table tr:last-child td { border-bottom: none; }
+
+  footer {
+    background: var(--navy);
+    color: rgba(255,255,255,0.4);
+    text-align: center;
+    padding: 24px;
+    font-size: 12px;
+    font-family: 'Source Code Pro', monospace;
+    letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="phone-accent">📱 Mobile Web App</div>
+  <div class="cover-label">Abeyton Lodge · Member Reference</div>
+  <h1>Member<br>Quick Guide</h1>
+  <p class="cover-sub">How to book reservations, place orders, manage your household, and message the staff.</p>
+  <div class="cover-tags">
+    <span class="cover-tag">Members</span>
+    <span class="cover-tag">Mobile</span>
+    <span class="cover-tag">Reservations</span>
+    <span class="cover-tag">Ordering</span>
+  </div>
+</div>
+
+<nav class="nav-bar">
+  <a href="#signin" class="nav-link">Sign In</a>
+  <span class="nav-dot">●</span>
+  <a href="#nav" class="nav-link">Navigation</a>
+  <span class="nav-dot">●</span>
+  <a href="#book" class="nav-link">Book</a>
+  <span class="nav-dot">●</span>
+  <a href="#trips" class="nav-link">My Trips</a>
+  <span class="nav-dot">●</span>
+  <a href="#order" class="nav-link">Order</a>
+  <span class="nav-dot">●</span>
+  <a href="#members" class="nav-link">Members</a>
+  <span class="nav-dot">●</span>
+  <a href="#messages" class="nav-link">Messages</a>
+</nav>
+
+<!-- SECTION 1: SIGN IN -->
+<section class="section" id="signin">
+  <div class="section-header">
+    <span class="section-num">01</span>
+    <div>
+      <div class="section-title">Signing In</div>
+      <div class="section-desc">Access the member portal at abbeyton-lodge.netlify.app</div>
+    </div>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <div class="step-action">Open the app in your browser</div>
+        <div class="step-detail">Visit <strong>abbeyton-lodge.netlify.app</strong> on your phone. Bookmark it or add to your home screen for easy access.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num orange">2</div>
+      <div class="step-body">
+        <div class="step-action">Enter your email and password</div>
+        <div class="step-detail">Type your email and password, then tap <span class="mob-btn navy">SIGN IN</span>. If you don't have an account, tap <strong>Request access</strong> at the bottom.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <div class="step-action">You're in</div>
+        <div class="step-detail">You'll land on the main app with the bottom navigation bar. Your role shows as <strong>MEMBER</strong>.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 2: NAVIGATION -->
+<section class="section" id="nav">
+  <div class="section-header">
+    <span class="section-num">02</span>
+    <div>
+      <div class="section-title">Bottom Navigation</div>
+      <div class="section-desc">The five tabs at the bottom of the app. The active section is shown with an expanded label.</div>
+    </div>
+  </div>
+
+  <div class="bottom-nav">
+    <div class="bn-item active">
+      <span class="bn-icon">✦</span>
+      BOOK
+    </div>
+    <div class="bn-item">
+      <span class="bn-icon">⊞</span>
+      MY TRIPS
+    </div>
+    <div class="bn-item">
+      <span class="bn-icon">◎</span>
+      ORDER
+    </div>
+    <div class="bn-item">
+      <span class="bn-icon">◉</span>
+      MEMBERS
+    </div>
+    <div class="bn-item">
+      <span class="bn-icon">◈</span>
+      MESSAGES
+    </div>
+  </div>
+
+  <table class="ref-table" style="margin-top:16px;">
+    <thead>
+      <tr><th>Tab</th><th>What it does</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>✦ Book</strong></td><td>Make a new reservation (3-step wizard)</td></tr>
+      <tr><td><strong>⊞ My Trips</strong></td><td>View your upcoming and past reservations</td></tr>
+      <tr><td><strong>◎ Order</strong></td><td>Place or manage food orders for a reservation</td></tr>
+      <tr><td><strong>◉ Members</strong></td><td>Manage your household members and their dietary info</td></tr>
+      <tr><td><strong>◈ Messages</strong></td><td>Send messages to staff about a reservation</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- SECTION 3: BOOK -->
+<section class="section" id="book">
+  <div class="section-header">
+    <span class="section-num">03</span>
+    <div>
+      <div class="section-title">Booking a Reservation</div>
+      <div class="section-desc">Three-step process. You can go back at any step before confirming.</div>
+    </div>
+  </div>
+
+  <div class="steps-bar">
+    <div class="sb-item active"><span class="sb-num">1</span>When &amp; Where</div>
+    <div class="sb-item"><span class="sb-num">2</span>Who's Coming</div>
+    <div class="sb-item"><span class="sb-num">3</span>Confirm</div>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <div class="step-action">Step 1 — When &amp; Where</div>
+        <div class="step-detail">
+          Fill in:<br>
+          • <strong>Date</strong> — tap to open the date picker<br>
+          • <strong>Meal</strong> — <span class="mob-btn navy">Lunch</span> or <span class="mob-btn outline">Dinner</span><br>
+          • <strong>Time</strong> — select from the time picker<br>
+          • <strong>Room</strong> (optional) — your dining room preference (Breakfast Nook, Card Room, Pool, etc.)<br>
+          • <strong>Notes</strong> (optional) — any special requests (e.g. "no chocolate", "somewhere shady")<br><br>
+          Tap <span class="mob-btn navy">Next: Who's Coming →</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num orange">2</div>
+      <div class="step-body">
+        <div class="step-action">Step 2 — Who's Coming</div>
+        <div class="step-detail">
+          Your saved household members appear automatically. Tap <strong>×</strong> to remove anyone not attending.<br><br>
+          To add a guest (someone not in your household): type their name in the <strong>Guest name...</strong> field and tap <span class="mob-btn navy">Add</span>. Guests are labeled <span class="ui-chip chip-warn">GUEST</span>, members are labeled <span class="ui-chip chip-green">MEMBER</span>.<br><br>
+          Party size shows as <strong>(N/10)</strong> — max 10 per reservation.<br><br>
+          Tap <span class="mob-btn navy">Review →</span> when done, or <span class="mob-btn outline">← Back</span> to go back.
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num green">3</div>
+      <div class="step-body">
+        <div class="step-action">Step 3 — Confirm</div>
+        <div class="step-detail">
+          Review the summary: Date, Time, Meal, Room, Party names, Notes.<br><br>
+          Tap <span class="mob-btn navy">Confirm Reservation ✓</span> to submit. The reservation is created in <strong>Confirmed</strong> status — staff will have it on their Admin page immediately.<br><br>
+          Tap <span class="mob-btn outline">← Back</span> to make changes.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout info">
+    <span class="callout-icon">ℹ️</span>
+    <div>You can only order food <strong>after</strong> the reservation is confirmed and you've been assigned to a table by staff. Check <strong>My Trips</strong> to see your reservation status.</div>
+  </div>
+</section>
+
+<!-- SECTION 4: MY TRIPS -->
+<section class="section" id="trips">
+  <div class="section-header">
+    <span class="section-num">04</span>
+    <div>
+      <div class="section-title">My Trips</div>
+      <div class="section-desc">See all your upcoming and past reservations.</div>
+    </div>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <div class="step-action">Switch between Upcoming and Past</div>
+        <div class="step-detail">Tap <span class="mob-btn navy">Upcoming</span> or <span class="mob-btn outline">Past</span> at the top to toggle. Each reservation card shows the date, time, meal type, notes, and status.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num orange">2</div>
+      <div class="step-body">
+        <div class="step-action">Tap a reservation to see details</div>
+        <div class="step-detail">Tap <strong>CONFIRMED →</strong> on a card to open the reservation detail page. You can view attendees, check your order status, and access messages from here.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout warn">
+    <span class="callout-icon">⚠️</span>
+    <div>A reservation showing <span class="ui-chip chip-warn">No order placed</span> means no one in your party has ordered yet. Use the <strong>Order</strong> tab to place orders before you arrive.</div>
+  </div>
+</section>
+
+<!-- SECTION 5: ORDER -->
+<section class="section" id="order">
+  <div class="section-header">
+    <span class="section-num">05</span>
+    <div>
+      <div class="section-title">Ordering Food</div>
+      <div class="section-desc">Place individual orders for each person in your party. Each person gets their own order.</div>
+    </div>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <div class="step-action">Tap Order in the bottom nav</div>
+        <div class="step-detail">A list of your reservations appears. Each shows the date, time, and meal type. Green dots indicate upcoming reservations. Tap <strong>TAP TO ORDER →</strong> on the reservation you want.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num orange">2</div>
+      <div class="step-body">
+        <div class="step-action">Select a person</div>
+        <div class="step-detail">Attendee name pills appear at the top (e.g. Nat, Molly, Parker, Jaime, Nolan). Tap a name to switch to their order. A number badge on a name shows how many items they have in their order.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <div class="step-action">Browse the menu</div>
+        <div class="step-detail">Filter by category: <span class="mob-btn navy">All</span> <span class="mob-btn outline">Starters</span> <span class="mob-btn outline">Salads &amp; Bowls</span> <span class="mob-btn outline">Add-on</span> etc. Each item shows a description and price.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num blue">4</div>
+      <div class="step-body">
+        <div class="step-action">Add items to the order</div>
+        <div class="step-detail">Tap <span class="mob-btn navy">Add</span> next to any item. It appears in the <strong>CURRENT ORDER</strong> box at the top with a running total. If the item is already in the order, the button shows <strong>+1</strong> and a badge shows "N in order". Use the <strong>−</strong> button to remove.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <div class="step-action">Repeat for each person</div>
+        <div class="step-detail">Tap another name pill and place their order. Orders are per-person. You can order different things for each attendee.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout warn">
+    <span class="callout-icon">🔒</span>
+    <div><strong>Orders cannot be changed after staff fires them.</strong> If an order is fired, the screen shows "This order has been fired and can no longer be edited." Menu items will have grayed-out Add buttons.</div>
+  </div>
+
+  <div class="callout tip">
+    <span class="callout-icon">💡</span>
+    <div>You can order before arriving. Staff can also place or adjust orders for you at the table in Floor View. If you need changes after firing, message the staff.</div>
+  </div>
+</section>
+
+<!-- SECTION 6: MEMBERS -->
+<section class="section" id="members">
+  <div class="section-header">
+    <span class="section-num">06</span>
+    <div>
+      <div class="section-title">Household Members</div>
+      <div class="section-desc">Save your family members once — they auto-populate when you book a reservation.</div>
+    </div>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <div class="step-action">View your household</div>
+        <div class="step-detail">Tap <strong>Members</strong> in the bottom nav. Your household is listed: each card shows the person's name, relation (Primary, Spouse, Child), and dietary restriction tags.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num orange">2</div>
+      <div class="step-body">
+        <div class="step-action">Add a household member</div>
+        <div class="step-detail">Tap <span class="mob-btn navy">+ Add Household Member</span>. Fill in:<br>
+        • <strong>Full Name</strong> (required)<br>
+        • <strong>Relation</strong> (optional — e.g. Child, Spouse)<br>
+        • <strong>Dietary Restrictions</strong> — tap to select any that apply (Dairy Free, Egg Free, Fish Allergy, Gluten Free, Halal, Kosher, Nut Allergy, Peanut Allergy, Sesame Allergy, Shellfish Allergy, Soy Free, Vegan, Vegetarian)<br><br>
+        Tap <span class="mob-btn navy">Add Member</span> to save.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <div class="step-action">Edit a member</div>
+        <div class="step-detail">Tap <span class="mob-btn outline">Edit</span> on any member card. Change name, relation, or dietary restrictions. Tap <span class="mob-btn navy">Save Changes</span>. A "Member updated" toast confirms the save.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num" style="background:#C0392B;">4</div>
+      <div class="step-body">
+        <div class="step-action">Remove a member</div>
+        <div class="step-detail">Tap <span class="mob-btn" style="background:rgba(192,57,43,0.12); color:#C0392B; border:none;">Remove</span> on the member card. The member is removed from your household and will no longer auto-populate in future reservations.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout info">
+    <span class="callout-icon">ℹ️</span>
+    <div>Dietary restrictions saved here are automatically visible to staff when they view attendees in Floor View and print kitchen chits. Always keep these up to date.</div>
+  </div>
+</section>
+
+<!-- SECTION 7: MESSAGES -->
+<section class="section" id="messages">
+  <div class="section-header">
+    <span class="section-num">07</span>
+    <div>
+      <div class="section-title">Messaging Staff</div>
+      <div class="section-desc">Send notes to the staff about a specific reservation. Staff can reply from the Admin or Overlord panel.</div>
+    </div>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <div class="step-action">Tap Messages in the bottom nav</div>
+        <div class="step-detail">You'll see a list of your reservations — past and upcoming. Each shows the date, time, and meal type. Tap <strong>TAP TO VIEW MESSAGES →</strong> on the reservation you want to message about.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num orange">2</div>
+      <div class="step-body">
+        <div class="step-action">Read the message thread</div>
+        <div class="step-detail">All messages for this reservation appear in order. Your messages appear left-aligned, staff replies appear on the right. Each message shows the sender's email.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num green">3</div>
+      <div class="step-body">
+        <div class="step-action">Send a message</div>
+        <div class="step-detail">Type your message in the <strong>Message to staff...</strong> field and tap <span class="mob-btn navy">Send</span>. Your message appears immediately. Staff will see it in the Admin or Overlord reservation detail with an "unread" indicator.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout tip">
+    <span class="callout-icon">💡</span>
+    <div>Messages are reservation-specific. To message about your 11 AM reservation, select that reservation's thread — not the 1 PM one. Each reservation has its own separate conversation.</div>
+  </div>
+</section>
+
+<footer>
+  ABEYTON LODGE · MEMBER GUIDE · abbeyton-lodge.netlify.app
+</footer>
+
+</body>
+</html>
