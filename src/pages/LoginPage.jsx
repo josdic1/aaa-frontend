@@ -67,7 +67,10 @@ export function LoginPage() {
       {/* LEFT SECTION - Branding */}
       <div style={s.left}>
         <div style={s.pattern} />
-        <div style={s.circle} />
+        {/* Circle lives inside its own clipping wrapper so overflow:visible on left doesn't bleed it out */}
+        <div style={s.circleWrapper}>
+          <div style={s.circle} />
+        </div>
 
         <div style={s.brand}>
           <div style={s.eyebrow}>Members Portal</div>
@@ -80,10 +83,9 @@ export function LoginPage() {
             Private dining reservations and member services for Abeyton Lodge.
           </div>
 
-          {/* USER GUIDES (requested block) */}
+          {/* USER GUIDES */}
           <div style={s.guidesWrap}>
             <div style={s.guidesHeader}>User Guides</div>
-
             <div style={s.guidesList}>
               {userGuides.map(({ href, title, Icon }) => (
                 <a
@@ -92,6 +94,12 @@ export function LoginPage() {
                   target="_blank"
                   rel="noreferrer"
                   style={s.guideLink}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = "#f97316";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = "rgba(255,255,255,0.72)";
+                  }}
                 >
                   <Icon size={16} style={s.guideIcon} />
                   <span style={s.guideTitle}>{title}</span>
@@ -119,7 +127,6 @@ export function LoginPage() {
             </h1>
             <p style={s.sub}>Click an account below to log in as that role.</p>
 
-            {/* BOUTIQUE HORIZONTAL ROWS */}
             <div
               style={{
                 display: "flex",
@@ -137,7 +144,6 @@ export function LoginPage() {
                     gap: "8px",
                   }}
                 >
-                  {/* Role Header: Black & Caps */}
                   <div
                     style={{
                       color: "#000",
@@ -150,7 +156,6 @@ export function LoginPage() {
                     {group.role}
                   </div>
 
-                  {/* Horizontal Scrollable Names: Orange */}
                   <div
                     style={{
                       display: "flex",
@@ -313,7 +318,10 @@ const s = {
     justifyContent: "space-between",
     padding: "clamp(24px, 5vw, 48px)",
     position: "relative",
-    overflow: "hidden",
+    // FIX: changed from overflow:"hidden" to "visible" — the hidden was clipping
+    // the user guides section. The decorative circle is now inside its own
+    // overflow:hidden wrapper so it still gets clipped correctly.
+    overflow: "visible",
     minHeight: "300px",
   },
   pattern: {
@@ -321,6 +329,15 @@ const s = {
     inset: 0,
     backgroundImage: `repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(255,255,255,0.04) 39px, rgba(255,255,255,0.04) 40px), repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(255,255,255,0.04) 39px, rgba(255,255,255,0.04) 40px)`,
     pointerEvents: "none",
+    zIndex: 0,
+  },
+  // Wrapper that clips the circle without clipping the whole left panel
+  circleWrapper: {
+    position: "absolute",
+    inset: 0,
+    overflow: "hidden",
+    pointerEvents: "none",
+    zIndex: 0,
   },
   circle: {
     position: "absolute",
@@ -331,7 +348,6 @@ const s = {
     background: "#f97316",
     borderRadius: "50%",
     opacity: 0.15,
-    pointerEvents: "none",
   },
   brand: { position: "relative", zIndex: 1 },
   eyebrow: {
@@ -358,13 +374,13 @@ const s = {
     lineHeight: 1.6,
     maxWidth: "280px",
   },
-
-  // USER GUIDES styles (minimal, delicate, noticeable)
   guidesWrap: {
     marginTop: "34px",
     paddingTop: "22px",
     borderTop: "1px solid rgba(255,255,255,0.08)",
     maxWidth: "320px",
+    position: "relative",
+    zIndex: 2,
   },
   guidesHeader: {
     fontSize: "10px",
@@ -378,7 +394,7 @@ const s = {
   guidesList: {
     display: "flex",
     flexDirection: "column",
-    gap: "12px",
+    gap: "0px",
   },
   guideLink: {
     display: "flex",
@@ -391,8 +407,9 @@ const s = {
     letterSpacing: "0.12em",
     textTransform: "uppercase",
     lineHeight: 1.2,
-    padding: "8px 0",
+    padding: "10px 0",
     borderBottom: "1px solid rgba(255,255,255,0.06)",
+    transition: "color 0.15s ease",
   },
   guideIcon: {
     opacity: 0.75,
@@ -401,7 +418,6 @@ const s = {
   guideTitle: {
     display: "inline-block",
   },
-
   debugLink: {
     fontSize: "12px",
     color: "rgba(0,0,0,0.4)",
