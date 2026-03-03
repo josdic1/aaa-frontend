@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
+import { Smartphone, Monitor, Shield } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 
 export function LoginPage() {
@@ -42,6 +43,24 @@ export function LoginPage() {
     { role: "STAFF", names: ["Ariel", "Brian"] },
     { role: "MEMBER", names: ["Dorrie", "Jaime"] },
     { role: "ADMIN", names: ["Jill", "Manager"] },
+  ];
+
+  const userGuides = [
+    {
+      href: "https://abbeyton-lodge.netlify.app/member-mobile",
+      title: "Members | Mobile",
+      Icon: Smartphone,
+    },
+    {
+      href: "https://abbeyton-lodge.netlify.app/member-tablet",
+      title: "Members | Tablet / PC",
+      Icon: Monitor,
+    },
+    {
+      href: "https://abbeyton-lodge.netlify.app/admin-tablet",
+      title: "Admin/Staff | Tablet / PC",
+      Icon: Shield,
+    },
   ];
 
   return (
