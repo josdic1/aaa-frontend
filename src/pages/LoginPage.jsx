@@ -65,6 +65,19 @@ export function LoginPage() {
 
   return (
     <div style={s.page}>
+      <div
+        style={{
+          position: "fixed",
+          top: 8,
+          left: 8,
+          zIndex: 9999,
+          background: "yellow",
+          padding: 6,
+          fontWeight: 900,
+        }}
+      >
+        LOGIN PAGE IS THIS FILE
+      </div>
       {/* LEFT SECTION - Branding */}
       <div style={s.left}>
         <div style={s.pattern} />
