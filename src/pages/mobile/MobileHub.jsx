@@ -268,9 +268,23 @@ function BookScreen() {
       <div style={sc.head}>
         <a
           href="https://abbeyton-lodge.netlify.app"
-          style="display:inline-flex;align-items:center;gap:6px;font-family:'Source Code Pro',monospace;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.55);text-decoration:none;margin-bottom:20px;transition:color 0.2s;"
-          onmouseover="this.style.color='#e8622a'"
-          onmouseout="this.style.color='rgba(255,255,255,0.55)'"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px",
+            fontFamily: "'Source Code Pro', monospace",
+            fontSize: "11px",
+            letterSpacing: "1.5px",
+            textTransform: "uppercase",
+            color: "rgba(255,255,255,0.55)",
+            textDecoration: "none",
+            marginBottom: "20px",
+            transition: "color 0.2s",
+          }}
+          onMouseOver={(e) => (e.currentTarget.style.color = "#e8622a")}
+          onMouseOut={(e) =>
+            (e.currentTarget.style.color = "rgba(255,255,255,0.55)")
+          }
         >
           <svg
             width="14"
@@ -278,13 +292,13 @@ function BookScreen() {
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
           >
             <polyline points="15 18 9 12 15 6"></polyline>
           </svg>
-          Return to Abeyton Lodge Website
+          Return to Abbeyton Lodge Website
         </a>
         <div style={sc.eyebrow}>Book a Table</div>
         <div style={sc.title}>New Reservation</div>
