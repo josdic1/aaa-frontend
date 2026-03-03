@@ -284,7 +284,7 @@ function BookScreen() {
           >
             <polyline points="15 18 9 12 15 6"></polyline>
           </svg>
-          Return to Abeyton Lodge
+          Return to Abeyton Lodge Website
         </a>
         <div style={sc.eyebrow}>Book a Table</div>
         <div style={sc.title}>New Reservation</div>
